@@ -1,0 +1,73 @@
+:root {
+  color-scheme: dark;
+  font: 16px/1.5 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  --font-body: 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+
+  --bg: #0a0b1a;
+  --card-bg: #0d0e1c;
+  --panel-bg: #1c1e2e;
+  --border: #262a3d;
+  --border-soft: #1a1c2c;
+  --text-primary: #f2f3f7;
+  --text-secondary: #8b8fa3;
+  --text-tertiary: #5b5f76;
+
+  --accent-blue: #3457ff;
+  --accent-blue-dim: rgba(52, 87, 255, 0.15);
+  --accent-green: #37d67a;
+  --accent-green-dim: rgba(55, 214, 122, 0.15);
+  --accent-red: #ff5c72;
+  --accent-red-dim: rgba(255, 92, 114, 0.15);
+
+  /* Extension hues, ledger-bar/legend use only -- keep the three brand
+     accents above as the only colors used in UI chrome (buttons, links,
+     status). */
+  --accent-amber: #f5a623;
+  --accent-violet: #9b6bff;
+
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(52, 87, 255, 0.12), transparent 60%),
+    var(--bg);
+}
+
+h1,
+h2 {
+  font-weight: 600;
+  font-family: var(--font-body);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
