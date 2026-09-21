@@ -25,7 +25,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
 
   return (
     <tr className={rowClass}>
-      <td>
+      <td data-label="Project">
         <input
           type="text"
           value={task.project}
@@ -34,7 +34,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           onBlur={() => onFlush(task.id)}
         />
       </td>
-      <td>
+      <td data-label="Status">
         <select
           className={`status-select status-${statusSlug(task.status)}`}
           value={task.status}
@@ -47,7 +47,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           ))}
         </select>
       </td>
-      <td>
+      <td data-label="Hours">
         <div className="hours-field">
           <input
             type="number"
@@ -61,7 +61,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           <span className="hours-suffix">hrs</span>
         </div>
       </td>
-      <td>
+      <td data-label="Notes">
         <input
           className="notes-input"
           type="text"
@@ -71,7 +71,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           onBlur={() => onFlush(task.id)}
         />
       </td>
-      <td className="task-done-cell">
+      <td className="task-done-cell" data-label="Done">
         <label className="check-control">
           <input
             type="checkbox"
@@ -81,7 +81,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           <span className="check-box" aria-hidden="true" />
         </label>
       </td>
-      <td>
+      <td data-label="">
         <div className="row-end">
           {saving && <span className="row-status">Saving…</span>}
           {error && (

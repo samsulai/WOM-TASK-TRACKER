@@ -798,3 +798,96 @@
   display: block;
   margin: 20px auto 0;
 }
+
+/* ------------------------------------------------------------- mobile */
+@media (max-width: 640px) {
+  .app-content {
+    padding: 24px 16px 48px;
+  }
+  .totals-card,
+  .week-card,
+  .week-empty-prompt,
+  .week-nav-panel {
+    padding: 16px;
+  }
+
+  /* Top bar: stack brand above actions instead of squeezing both into
+     one row (the action cluster alone can exceed a phone's width). */
+  .topbar-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+  .topbar-actions {
+    flex-wrap: wrap;
+  }
+  .month-picker {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Week header: let the date/label column and the hours stat each take
+     a full row instead of competing for width alongside Delete. */
+  .week-card-header {
+    flex-wrap: wrap;
+  }
+  .week-card-stat {
+    order: 1;
+    text-align: left;
+  }
+  .week-progress {
+    justify-content: flex-start;
+  }
+
+  /* Task table -> stacked rows. The standard responsive-table pattern:
+     turn every row into its own card, with each cell's data-label
+     (set in TaskRow.jsx) shown as a left-hand caption instead of relying
+     on the (now hidden) header row. Avoids forcing a data table to
+     horizontal-scroll on a phone. */
+  .task-table,
+  .task-table tbody,
+  .task-table tr,
+  .task-table td {
+    display: block;
+    width: 100%;
+  }
+  .task-table thead {
+    display: none;
+  }
+  .task-table tr {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .task-table tr:last-child {
+    margin-bottom: 0;
+  }
+  .task-table td {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 2px;
+  }
+  .task-table td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 64px;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+  }
+  .task-table td[data-label='']::before {
+    display: none;
+  }
+  .hours-field {
+    width: auto;
+    flex: 1;
+  }
+  .row-end {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
