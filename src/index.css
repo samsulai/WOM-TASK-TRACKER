@@ -1,6 +1,6 @@
 :root {
   color-scheme: dark;
-  font: 16px/1.5 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
+  font: 18px/1.5 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
 
   --font-body: 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
@@ -31,6 +31,29 @@
   color: var(--text-primary);
 }
 
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f6f6f9;
+  --card-bg: #ffffff;
+  --panel-bg: #eef0f5;
+  --border: #dfe1ea;
+  --border-soft: #ebedf3;
+  --text-primary: #14151f;
+  --text-secondary: #565a70;
+  --text-tertiary: #8b8fa3;
+
+  --accent-blue: #2f4fe0;
+  --accent-blue-dim: rgba(47, 79, 224, 0.1);
+  --accent-green: #12a35a;
+  --accent-green-dim: rgba(18, 163, 90, 0.12);
+  --accent-red: #d92c46;
+  --accent-red-dim: rgba(217, 44, 70, 0.1);
+
+  --accent-amber: #b9790a;
+  --accent-violet: #6b46c1;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -40,6 +63,11 @@ body {
   min-height: 100vh;
   background:
     radial-gradient(ellipse 900px 500px at 50% -10%, rgba(52, 87, 255, 0.12), transparent 60%),
+    var(--bg);
+}
+:root[data-theme='light'] body {
+  background:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(47, 79, 224, 0.06), transparent 60%),
     var(--bg);
 }
 

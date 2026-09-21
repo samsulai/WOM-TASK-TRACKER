@@ -28,6 +28,9 @@
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
+:root[data-theme='light'] .topbar {
+  background: rgba(255, 255, 255, 0.78);
+}
 .topbar-inner {
   max-width: 960px;
   margin: 0 auto;
@@ -101,9 +104,26 @@
   border-radius: 8px;
   padding: 6px 10px;
   cursor: pointer;
-  color-scheme: dark;
 }
 .month-picker:hover {
+  border-color: var(--text-tertiary);
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  font-size: 0.95rem;
+  line-height: 1;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.theme-toggle:hover {
   border-color: var(--text-tertiary);
 }
 
@@ -114,53 +134,6 @@
   text-align: left;
 }
 
-.connection-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  padding: 5px 12px 5px 9px;
-  border-radius: 999px;
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-.connection-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--text-tertiary);
-  flex: none;
-}
-.connection-live {
-  color: var(--accent-green);
-  border-color: rgba(55, 214, 122, 0.3);
-}
-.connection-live .connection-dot {
-  background: var(--accent-green);
-  animation: pulse-ring 2s ease-out infinite;
-}
-.connection-error,
-.connection-closed {
-  color: var(--accent-red);
-  border-color: rgba(255, 92, 114, 0.3);
-}
-.connection-error .connection-dot,
-.connection-closed .connection-dot {
-  background: var(--accent-red);
-}
-@keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 rgba(55, 214, 122, 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 6px rgba(55, 214, 122, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(55, 214, 122, 0);
-  }
-}
 
 /* ------------------------------------------------------------ stats bar */
 .stats-bar {
@@ -205,6 +178,30 @@
   }
   .stat-tile:nth-child(-n + 2) {
     border-bottom: 1px solid var(--border);
+  }
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  margin-top: 60px;
+}
+.loading-state .status-text {
+  margin-top: 0;
+}
+.spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent-blue);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -487,6 +484,10 @@
   .week-nav-panel {
     flex: none;
     width: 100%;
+    order: 2;
+  }
+  .week-focus {
+    order: 1;
   }
 }
 

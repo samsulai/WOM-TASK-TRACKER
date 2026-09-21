@@ -83,7 +83,18 @@ async function rolloverIncompleteTasks(weeksData, tasksData) {
   return { weeks, tasks, movedCount: taskIds.length }
 }
 
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem('wtt-theme')
+    if (saved === 'light' || saved === 'dark') return saved
+  } catch {
+    // localStorage unavailable (private browsing, etc.) -- fall through
+  }
+  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+}
+
 export default function App() {
+  const [theme, setTheme] = useState(getInitialTheme)
   const [weeks, setWeeks] = useState([])
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -91,9 +102,19 @@ export default function App() {
   const [globalNotice, setGlobalNotice] = useState(null)
   const [savingIds, setSavingIds] = useState(() => new Set())
   const [fieldErrors, setFieldErrors] = useState(() => new Map())
-  const [connectionStatus, setConnectionStatus] = useState('connecting')
   const [exportMonth, setExportMonth] = useState('')
   const [selectedWeekId, setSelectedWeekId] = useState(null)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    try {
+      localStorage.setItem('wtt-theme', theme)
+    } catch {
+      // ignore -- theme just won't persist across sessions
+    }
+  }, [theme])
+
+  const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'))
 
   // Refs mirror latest state so debounced/async callbacks never read stale
   // closures. dirtyIds tracks rows with an unsaved or in-flight local edit;
@@ -186,12 +207,7 @@ export default function App() {
           }
         }
       })
-      .subscribe((status) => {
-        if (cancelled) return
-        if (status === 'SUBSCRIBED') setConnectionStatus('live')
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setConnectionStatus('error')
-        else if (status === 'CLOSED') setConnectionStatus('closed')
-      })
+      .subscribe()
 
     return () => {
       cancelled = true
@@ -502,7 +518,10 @@ export default function App() {
   if (loading) {
     return (
       <div className="app-shell">
-        <p className="status-text">Loading…</p>
+        <div className="loading-state">
+          <span className="spinner" aria-hidden="true" />
+          <p className="status-text">Loading…</p>
+        </div>
       </div>
     )
   }
@@ -538,13 +557,14 @@ export default function App() {
             <button className="export-btn" onClick={exportCsv} disabled={filteredExportRows.length === 0}>
               Export CSV
             </button>
-            <div className={`connection-indicator connection-${connectionStatus}`}>
-              <span className="connection-dot" />
-              {connectionStatus === 'live' && 'Live'}
-              {connectionStatus === 'connecting' && 'Connecting…'}
-              {connectionStatus === 'error' && 'Sync error'}
-              {connectionStatus === 'closed' && 'Disconnected'}
-            </div>
+            <button
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? '🌙' : '☀️'}
+            </button>
           </div>
         </div>
       </header>
@@ -567,6 +587,14 @@ export default function App() {
         <Totals projectTotals={projectTotals} grandTotal={grandTotal} />
 
         <div className="week-workspace">
+          <WeekNav
+            weeks={weeks}
+            weekHoursById={weekHoursById}
+            selectedWeekId={selectedWeek?.id ?? null}
+            currentWeekStart={currentWeekStart}
+            onSelect={setSelectedWeekId}
+          />
+
           <div className="week-focus">
             {selectedWeek ? (
               <WeekCard
@@ -598,14 +626,6 @@ export default function App() {
               </button>
             )}
           </div>
-
-          <WeekNav
-            weeks={weeks}
-            weekHoursById={weekHoursById}
-            selectedWeekId={selectedWeek?.id ?? null}
-            currentWeekStart={currentWeekStart}
-            onSelect={setSelectedWeekId}
-          />
         </div>
       </main>
     </div>
