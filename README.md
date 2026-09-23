@@ -85,10 +85,33 @@ login yet, the URL is what grants access.
 
 ## Data model
 
-- `weeks`: one row per week (`week_start` date, optional `label`).
+- `clients`: optional. A week can belong to a client, or stay "internal"
+  (`client_id` null).
+- `weeks`: one row per week per client (`week_start` date, optional `label`,
+  optional `client_id`).
 - `tasks`: belongs to a week (`week_id`), has `project`, `status`
   (`Not Started` / `In Progress` / `Blocked` / `Done`), `hours`, `notes`,
   `done`.
+
+## Client links
+
+- Your own link (no `?client=` in the URL) is the admin view: it shows
+  everything — internal weeks plus every client's weeks — combined totals,
+  and a **Clients** button (top bar) to add clients and copy their link.
+- Each client's link (`?client=<their-id>`) scopes the *entire* app to just
+  their weeks/tasks — totals, stats, the week list, CSV export. They don't
+  see the Clients button or anyone else's data in the UI.
+- Assign an existing week to a client (or pull it back to internal) from the
+  dropdown on that week's card, in the admin view.
+- **This is a capability link, not real access control.** Like the rest of
+  this app (see the RLS trade-off note in `supabase/schema.sql`), every table
+  is readable/writable by anyone with the anon key — the client-scoped URL
+  filters what the *app* shows, but doesn't stop someone from querying the
+  database directly. That's an acceptable trade-off for organizing views for
+  trusted clients, but it is **not** confidentiality between clients who
+  shouldn't be able to see each other's data even if they tried. That needs
+  real per-client accounts (Supabase Auth + RLS keyed to the logged-in
+  user) — a meaningfully bigger feature than this app currently has.
 
 ## How live sync + concurrent edits are handled
 
@@ -122,8 +145,6 @@ login yet, the URL is what grants access.
 
 ## Future work / ideas not yet implemented
 
-- Real login (Supabase Auth) so only specific people can access the tracker,
-  instead of "anyone with the link."
-- Mobile-friendly layout.
-- CSV export of hours.
+- Real per-client accounts (Supabase Auth) if client links need genuine
+  confidentiality rather than the current capability-link trade-off.
 - Drag-and-drop task reordering within a week.

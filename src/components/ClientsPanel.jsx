@@ -1,0 +1,103 @@
+import { useEffect, useState } from 'react'
+import { formatHours } from '../format'
+
+export default function ClientsPanel({ clients, clientStats, onAddClient, onDeleteClient, onClose }) {
+  const [name, setName] = useState('')
+  const [copiedId, setCopiedId] = useState(null)
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  const copyLink = async (id) => {
+    const url = `${window.location.origin}${window.location.pathname}?client=${id}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      window.prompt('Copy this link:', url)
+    }
+    setCopiedId(id)
+    setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1600)
+  }
+
+  const handleAdd = (e) => {
+    e.preventDefault()
+    const trimmed = name.trim()
+    if (!trimmed) return
+    onAddClient(trimmed)
+    setName('')
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="clients-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Clients"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="clients-panel-header">
+          <p className="eyebrow">Clients</p>
+          <button className="icon-btn icon-btn-ghost" onClick={onClose} aria-label="Close clients panel">
+            ✕
+          </button>
+        </div>
+
+        <form className="clients-add-form" onSubmit={handleAdd}>
+          <input
+            type="text"
+            placeholder="New client name…"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+          <button type="submit" className="add-task-btn">
+            + Add
+          </button>
+        </form>
+
+        <ul className="clients-list">
+          {clients.map((c) => {
+            const stats = clientStats.get(c.id)
+            return (
+              <li key={c.id}>
+                <div className="clients-list-info">
+                  <span className="clients-list-name">{c.name}</span>
+                  <span className="clients-list-stats">
+                    {stats
+                      ? `${formatHours(stats.hoursTotal)} · ${stats.weeksCount} week${stats.weeksCount === 1 ? '' : 's'} · ${stats.tasksOpen} open · ${stats.tasksDone} done`
+                      : 'No weeks yet'}
+                  </span>
+                </div>
+                <div className="clients-list-actions">
+                  <button
+                    className="icon-btn icon-btn-copy"
+                    aria-label={`Copy link for ${c.name}`}
+                    title="Copy link"
+                    onClick={() => copyLink(c.id)}
+                  >
+                    {copiedId === c.id ? '✓' : '⧉'}
+                  </button>
+                  <button
+                    className="icon-btn icon-btn-danger"
+                    aria-label={`Delete ${c.name}`}
+                    title={`Delete ${c.name}`}
+                    onClick={() => onDeleteClient(c.id)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+          {clients.length === 0 && <p className="empty-row">No clients yet.</p>}
+        </ul>
+      </div>
+    </div>
+  )
+}

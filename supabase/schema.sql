@@ -10,13 +10,30 @@ create extension if not exists "pgcrypto"; -- gives us gen_random_uuid()
 
 -- ---------------------------------------------------------------------------
 -- Tables
+--
+-- A week is "internal" (client_id null) until assigned to a client. Each
+-- client gets a shareable link (?client=<id>) that scopes the whole app to
+-- just their weeks/tasks -- see README "Client links" for how this works
+-- and what it does and doesn't protect against.
 -- ---------------------------------------------------------------------------
-create table if not exists weeks (
+create table if not exists clients (
   id          uuid primary key default gen_random_uuid(),
-  week_start  date not null unique,
-  label       text not null default '',
+  name        text not null,
   created_at  timestamptz not null default now()
 );
+
+create table if not exists weeks (
+  id          uuid primary key default gen_random_uuid(),
+  week_start  date not null,
+  label       text not null default '',
+  client_id   uuid references clients(id) on delete set null,
+  created_at  timestamptz not null default now()
+);
+
+-- Each client (including the "internal" null bucket) can only have one row
+-- per calendar week -- but different clients can each have their own row
+-- for the same week_start.
+create unique index if not exists weeks_client_week_unique on weeks (client_id, week_start);
 
 create table if not exists tasks (
   id          uuid primary key default gen_random_uuid(),
@@ -58,13 +75,16 @@ create trigger tasks_set_updated_at
 --
 -- v1 trade-off: this app has no login system yet (see README "Future work").
 -- Anyone with the anon key (i.e. anyone with the deployed URL) can read and
--- write. That's an acceptable default for a small internal tool shared with
--- one trusted contractor, but it means the URL itself is the access control.
--- If that's not good enough, add Supabase Auth + tighten these policies to
--- `using (auth.uid() is not null)` before sharing the link.
+-- write EVERY row in every table below -- including client links, which are
+-- capability URLs (unguessable, not access-controlled): they organize the
+-- view per client but don't prevent someone from querying the tables
+-- directly with the anon key. If that's not good enough, add Supabase Auth
+-- and tighten these policies to `using (auth.uid() is not null)` (or a
+-- proper per-client mapping) before sharing more broadly.
 -- ---------------------------------------------------------------------------
 alter table weeks enable row level security;
 alter table tasks enable row level security;
+alter table clients enable row level security;
 
 drop policy if exists "weeks_select_all" on weeks;
 drop policy if exists "weeks_insert_all" on weeks;
@@ -84,10 +104,19 @@ create policy "tasks_insert_all" on tasks for insert with check (true);
 create policy "tasks_update_all" on tasks for update using (true) with check (true);
 create policy "tasks_delete_all" on tasks for delete using (true);
 
+drop policy if exists "clients_select_all" on clients;
+drop policy if exists "clients_insert_all" on clients;
+drop policy if exists "clients_update_all" on clients;
+drop policy if exists "clients_delete_all" on clients;
+create policy "clients_select_all" on clients for select using (true);
+create policy "clients_insert_all" on clients for insert with check (true);
+create policy "clients_update_all" on clients for update using (true) with check (true);
+create policy "clients_delete_all" on clients for delete using (true);
+
 -- ---------------------------------------------------------------------------
--- Realtime: add both tables to the publication Supabase's realtime service
--- listens to. Without this, postgres_changes subscriptions never fire.
--- Wrapped so re-running this script doesn't error if already added.
+-- Realtime: add all three tables to the publication Supabase's realtime
+-- service listens to. Without this, postgres_changes subscriptions never
+-- fire. Wrapped so re-running this script doesn't error if already added.
 -- ---------------------------------------------------------------------------
 do $$
 begin
@@ -103,5 +132,12 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'tasks'
   ) then
     alter publication supabase_realtime add table tasks;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'clients'
+  ) then
+    alter publication supabase_realtime add table clients;
   end if;
 end $$;

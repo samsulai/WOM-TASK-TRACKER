@@ -91,7 +91,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
             </span>
           )}
           <button
-            className="icon-btn icon-btn-ghost"
+            className="icon-btn icon-btn-danger"
             aria-label="Delete task"
             title="Delete task"
             onClick={() => onDelete(task.id)}

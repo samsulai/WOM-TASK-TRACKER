@@ -12,6 +12,7 @@ export default function WeekCard({
   onUpdateWeekField,
   onDeleteWeek,
   onFlushTask,
+  clients,
 }) {
   const weekHours = tasks.reduce((sum, t) => sum + Number(t.hours || 0), 0)
   const doneCount = tasks.filter((t) => t.done).length
@@ -35,6 +36,20 @@ export default function WeekCard({
             value={week.label}
             onChange={(e) => onUpdateWeekField(week.id, { label: e.target.value })}
           />
+          {clients && (
+            <select
+              className="week-client-select"
+              value={week.client_id || ''}
+              onChange={(e) => onUpdateWeekField(week.id, { client_id: e.target.value || null })}
+            >
+              <option value="">— Internal —</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           {weekError && <p className="week-error">{weekError}</p>}
         </div>
         <div className="week-card-stat">
@@ -55,7 +70,7 @@ export default function WeekCard({
           )}
         </div>
         <button
-          className="icon-btn icon-btn-ghost"
+          className="icon-btn icon-btn-danger"
           aria-label="Delete week"
           title="Delete week"
           onClick={() => onDeleteWeek(week.id)}
