@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import TaskRow from './TaskRow'
 import { formatHours } from '../format'
 
@@ -13,6 +14,7 @@ export default function WeekCard({
   onDeleteWeek,
   onFlushTask,
   clients,
+  onMoveWeek,
   readOnly,
 }) {
   const weekHours = tasks.reduce((sum, t) => sum + Number(t.hours || 0), 0)
@@ -40,22 +42,7 @@ export default function WeekCard({
             onChange={(e) => onUpdateWeekField(week.id, { label: e.target.value })}
           />
           {clients && (
-            <label className="week-client-field">
-              <span className="week-client-label">Assign this week to:</span>
-              <select
-                className="week-client-select"
-                value={week.client_id || ''}
-                title="Assign this whole week to a client, or keep it internal"
-                onChange={(e) => onUpdateWeekField(week.id, { client_id: e.target.value || null })}
-              >
-                <option value="">Internal (not assigned to a client)</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <WeekOwner week={week} clients={clients} onMove={(clientId) => onMoveWeek(week.id, clientId)} />
           )}
           {weekError && <p className="week-error">{weekError}</p>}
         </div>
@@ -128,5 +115,69 @@ export default function WeekCard({
         </button>
       )}
     </section>
+  )
+}
+
+// Who this week belongs to, plus an explicit "Move…" action to change it.
+// Deliberately NOT a plain dropdown: an always-visible select looked like a
+// "switch client" control, but it edits data.
+function WeekOwner({ week, clients, onMove }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
+    }
+    const onKey = (e) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const ownerName = week.client_id ? clients.find((c) => c.id === week.client_id)?.name || 'Client' : 'Internal'
+  const options = [{ id: null, name: 'Internal (no client)' }, ...clients]
+
+  return (
+    <div className="week-owner" ref={rootRef}>
+      <span className="week-owner-label">Belongs to</span>
+      <span className={`week-owner-chip${week.client_id ? ' week-owner-chip-client' : ''}`}>{ownerName}</span>
+      <button
+        type="button"
+        className="week-owner-move"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        Move…
+      </button>
+      {open && (
+        <div className="week-owner-menu" role="menu">
+          <p className="week-owner-menu-title">Move this whole week to:</p>
+          {options.map((o) => {
+            const current = (week.client_id || null) === o.id
+            return (
+              <button
+                key={o.id || 'internal'}
+                type="button"
+                role="menuitem"
+                className={`week-owner-option${current ? ' week-owner-option-current' : ''}`}
+                disabled={current}
+                onClick={() => {
+                  setOpen(false)
+                  onMove(o.id)
+                }}
+              >
+                <span aria-hidden="true">{current ? '✓' : ''}</span> {o.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }

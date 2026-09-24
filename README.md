@@ -108,8 +108,14 @@ login yet, the URL is what grants access.
   changes. (If you ever want clients to self-report their own hours
   instead, that's a one-line flip of the `readOnly` flag in `App.jsx` —
   ask before assuming which direction fits a given client relationship.)
-- Assign an existing week to a client (or pull it back to internal) from the
-  dropdown on that week's card, in the admin view.
+- **Viewing vs. moving (admin).** The **Viewing** selector in the top bar
+  chooses whose data you're looking at — Everything, Internal only, or one
+  client — and filters the weeks list, stats, totals and CSV export. It never
+  changes data. New weeks you add belong to whoever you're viewing. To hand an
+  existing week to a different client (or make it internal), use **Move…**
+  next to "Belongs to" on the week card — that's the only control that
+  changes ownership. A move is blocked if the destination already has a week
+  starting the same day.
 - **This is a capability link, not real access control.** Like the rest of
   this app (see the RLS trade-off note in `supabase/schema.sql`), every table
   is readable/writable by anyone with the anon key — the client-scoped URL

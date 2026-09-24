@@ -5,8 +5,9 @@ import Totals from './components/Totals'
 import StatsBar from './components/StatsBar'
 import WeekNav from './components/WeekNav'
 import ClientsPanel from './components/ClientsPanel'
+import ViewSwitcher from './components/ViewSwitcher'
 import { formatWeekStart } from './format'
-import { startTour, maybeAutoStartTour } from './tour'
+import { INTERNAL_SCOPE } from './scope'
 import './App.css'
 
 const SAVE_DEBOUNCE_MS = 600
@@ -129,10 +130,11 @@ export default function App() {
   const [fieldErrors, setFieldErrors] = useState(() => new Map())
   const [exportMonth, setExportMonth] = useState('')
   const [selectedWeekId, setSelectedWeekId] = useState(null)
-  // Admin-only, local UI filter: "view as this client" narrows the weeks
-  // list/stats/totals to just their data without leaving your own admin
+  // Admin-only, local UI filter (the "Viewing" switcher in the top bar):
+  // null = everything, INTERNAL_SCOPE = weeks with no client, or a client id.
+  // Narrows the weeks list/stats/totals/export without leaving your own admin
   // session (unlike clientId, which comes from the URL and can't change).
-  const [viewingClientId, setViewingClientId] = useState(null)
+  const [viewScope, setViewScope] = useState(null)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -270,16 +272,6 @@ export default function App() {
     // clientId is set once via lazy useState initializer and never changes,
     // so this effect still only runs once on mount.
   }, [clientId])
-
-  // First-time visitors get the tour automatically, once ever (tracked in
-  // localStorage); everyone can re-trigger it manually via the "?" button.
-  // The short delay lets the just-loaded content actually paint before
-  // driver.js goes looking for the elements it highlights.
-  useEffect(() => {
-    if (loading || loadError) return
-    const timer = setTimeout(() => maybeAutoStartTour(!clientId), 400)
-    return () => clearTimeout(timer)
-  }, [loading, loadError, clientId])
 
   // ---------------------------------------------------------------------
   // Task editing: optimistic local update + debounced save, with retry on
@@ -443,11 +435,28 @@ export default function App() {
     [flushWeekSave]
   )
 
+  // New weeks belong to whoever you're currently viewing: the client link's
+  // client, or the client picked in the admin "Viewing" switcher. Under
+  // "All" or "Internal only" they start out internal.
+  const newWeekClientId = clientId || (viewScope && viewScope !== INTERNAL_SCOPE ? viewScope : null)
+
+  // The DB's unique (client_id, week_start) index can't catch duplicates for
+  // internal weeks (client_id is NULL, and NULLs never collide), so check
+  // here that an owner doesn't end up with two weeks starting the same day.
+  const ownerHasWeekStarting = (ownerId, weekStart, exceptWeekId) =>
+    weeksRef.current.some(
+      (w) => w.id !== exceptWeekId && (w.client_id || null) === ownerId && w.week_start === weekStart
+    )
+
   const addWeek = useCallback(async () => {
     const weekStart = todayAsWeekStart()
+    if (ownerHasWeekStarting(newWeekClientId, weekStart)) {
+      setGlobalNotice({ type: 'error', text: 'A week starting on that date already exists.' })
+      return
+    }
     const { data, error } = await supabase
       .from('weeks')
-      .insert({ week_start: weekStart, label: '', client_id: clientId || null })
+      .insert({ week_start: weekStart, label: '', client_id: newWeekClientId })
       .select()
       .single()
     if (error) {
@@ -459,7 +468,25 @@ export default function App() {
     }
     applyWeeks(upsertById(weeksRef.current, data))
     setSelectedWeekId(data.id)
-  }, [clientId])
+  }, [newWeekClientId])
+
+  const moveWeek = useCallback(
+    (weekId, newClientId) => {
+      const week = weeksRef.current.find((w) => w.id === weekId)
+      if (!week || (week.client_id || null) === newClientId) return
+      const destination = newClientId ? clients.find((c) => c.id === newClientId)?.name || 'that client' : 'Internal'
+      if (ownerHasWeekStarting(newClientId, week.week_start, weekId)) {
+        setGlobalNotice({
+          type: 'error',
+          text: `Can't move it: ${destination} already has a week starting on ${formatWeekStart(week.week_start)}. Change this week's date first.`,
+        })
+        return
+      }
+      updateWeekField(weekId, { client_id: newClientId })
+      setGlobalNotice({ type: 'info', text: `Moved this week to ${destination}.` })
+    },
+    [clients, updateWeekField]
+  )
 
   const deleteWeek = useCallback(async (weekId) => {
     if (!window.confirm('Delete this week and all its tasks? This cannot be undone.')) return
@@ -503,6 +530,7 @@ export default function App() {
         .map((w) => w.id)
 
       setClients((prev) => prev.filter((c) => c.id !== clientIdToDelete))
+      setViewScope((prev) => (prev === clientIdToDelete ? null : prev))
       applyWeeks(
         weeksRef.current.map((w) => (w.client_id === clientIdToDelete ? { ...w, client_id: null } : w))
       )
@@ -541,19 +569,20 @@ export default function App() {
     return map
   }, [tasksByWeek])
 
-  // "View as client" filter (admin only): narrows weeks/tasks down to just
-  // one client's data, same idea as clientId but toggleable from the UI
-  // instead of fixed by the URL.
+  // "Viewing" filter (admin only): narrows weeks/tasks down to just one
+  // client's data (or just internal weeks), same idea as clientId but
+  // toggleable from the UI instead of fixed by the URL.
   const visibleWeeks = useMemo(() => {
-    if (clientId || !viewingClientId) return weeks
-    return weeks.filter((w) => w.client_id === viewingClientId)
-  }, [weeks, clientId, viewingClientId])
+    if (clientId || !viewScope) return weeks
+    if (viewScope === INTERNAL_SCOPE) return weeks.filter((w) => !w.client_id)
+    return weeks.filter((w) => w.client_id === viewScope)
+  }, [weeks, clientId, viewScope])
 
   const visibleTasks = useMemo(() => {
-    if (clientId || !viewingClientId) return tasks
+    if (clientId || !viewScope) return tasks
     const visibleWeekIds = new Set(visibleWeeks.map((w) => w.id))
     return tasks.filter((t) => visibleWeekIds.has(t.week_id))
-  }, [tasks, clientId, viewingClientId, visibleWeeks])
+  }, [tasks, clientId, viewScope, visibleWeeks])
 
   const currentWeekStart = useMemo(() => todayAsWeekStart(), [])
   const currentWeek = useMemo(
@@ -567,7 +596,8 @@ export default function App() {
   // weeks, see totals, and export CSV, but never add/edit/delete anything.
   // Only the admin's own link (no clientId) can make changes.
   const readOnly = Boolean(clientId)
-  const viewingClientName = viewingClientId ? clients.find((c) => c.id === viewingClientId)?.name : null
+  const scopeName =
+    viewScope === INTERNAL_SCOPE ? 'Internal' : viewScope ? clients.find((c) => c.id === viewScope)?.name || null : null
 
   // Per-client rollup for the admin Clients panel: how much is going on with
   // each client at a glance, without having to open their link.
@@ -662,6 +692,14 @@ export default function App() {
     URL.revokeObjectURL(url)
   }, [filteredExportRows, exportMonth])
 
+  const switchScope = (scope) => {
+    setViewScope(scope)
+    setSelectedWeekId(null)
+    setGlobalNotice(null)
+  }
+
+  const addWeekLabel = newWeekClientId && !clientId && scopeName ? `+ Add week for ${scopeName}` : '+ Add week'
+
   if (loading) {
     return (
       <div className="app-shell">
@@ -695,7 +733,10 @@ export default function App() {
           </div>
           <div className="topbar-actions">
             {!clientId && (
-              <button id="tour-clients-btn" className="export-btn" onClick={() => setClientsPanelOpen((v) => !v)}>
+              <ViewSwitcher clients={clients} value={viewScope} onChange={switchScope} />
+            )}
+            {!clientId && (
+              <button className="export-btn" onClick={() => setClientsPanelOpen((v) => !v)}>
                 Clients
               </button>
             )}
@@ -707,20 +748,11 @@ export default function App() {
               onChange={(e) => setExportMonth(e.target.value)}
             />
             <button
-              id="tour-export-btn"
               className="export-btn"
               onClick={exportCsv}
               disabled={filteredExportRows.length === 0}
             >
               Export CSV
-            </button>
-            <button
-              className="theme-toggle"
-              onClick={() => startTour(!clientId)}
-              aria-label="Take a tour"
-              title="Take a tour"
-            >
-              ?
             </button>
             <button
               className="theme-toggle"
@@ -742,8 +774,7 @@ export default function App() {
           currentWeekStart={currentWeekStart}
           onSelect={setSelectedWeekId}
           clients={clients}
-          viewingClientName={viewingClientName}
-          onClearViewingClient={() => setViewingClientId(null)}
+          scopeName={scopeName}
         />
 
         <main className="app-content">
@@ -761,8 +792,7 @@ export default function App() {
               onAddClient={addClient}
               onDeleteClient={deleteClient}
               onViewClient={(id) => {
-                setViewingClientId(id)
-                setSelectedWeekId(null)
+                switchScope(id)
                 setClientsPanelOpen(false)
               }}
               onClose={() => setClientsPanelOpen(false)}
@@ -791,6 +821,7 @@ export default function App() {
               onDeleteWeek={deleteWeek}
               onFlushTask={flushTaskSave}
               clients={!clientId ? clients : null}
+              onMoveWeek={moveWeek}
               readOnly={readOnly}
             />
           ) : (
@@ -800,7 +831,7 @@ export default function App() {
               <p>{readOnly ? 'Nothing logged for this week yet.' : 'No tasks logged yet for this week.'}</p>
               {!readOnly && (
                 <button className="add-week-btn" onClick={addWeek}>
-                  + Add week
+                  {addWeekLabel}
                 </button>
               )}
             </div>
@@ -808,7 +839,7 @@ export default function App() {
 
           {selectedWeek && !readOnly && (
             <button className="add-week-btn" onClick={addWeek}>
-              + Add week
+              {addWeekLabel}
             </button>
           )}
         </main>

@@ -7,13 +7,12 @@ export default function WeekNav({
   currentWeekStart,
   onSelect,
   clients,
-  viewingClientName,
-  onClearViewingClient,
+  scopeName,
 }) {
   // Only show the owner tag when the list is mixing weeks from more than
   // one owner (the default combined admin view) -- once already filtered
   // to a single client, every row would say the same thing.
-  const showOwnerTag = !viewingClientName
+  const showOwnerTag = !scopeName
 
   const ownerLabel = (week) => {
     if (!week.client_id) return 'Internal'
@@ -23,15 +22,7 @@ export default function WeekNav({
     <aside className="week-nav-panel">
       <div className="week-nav-header">
         <p className="eyebrow">Weeks</p>
-        {viewingClientName && (
-          <button
-            className="viewing-client-pill"
-            onClick={onClearViewingClient}
-            title={`Viewing only ${viewingClientName} — click to show everything again`}
-          >
-            <span aria-hidden="true">👁</span> {viewingClientName} <span aria-hidden="true">✕</span>
-          </button>
-        )}
+        {scopeName && <span className="week-nav-scope">{scopeName}</span>}
       </div>
       <nav className="week-nav">
         {weeks.map((week) => {
@@ -63,7 +54,7 @@ export default function WeekNav({
         })}
         {weeks.length === 0 && (
           <p className="week-nav-empty">
-            {viewingClientName ? `No weeks for ${viewingClientName} yet` : 'No weeks yet'}
+            {scopeName ? `No weeks for ${scopeName} yet` : 'No weeks yet'}
           </p>
         )}
       </nav>

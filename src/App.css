@@ -74,6 +74,35 @@
   gap: 10px;
 }
 
+.view-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent-blue-dim);
+  border: 1px solid rgba(52, 87, 255, 0.35);
+  border-radius: 8px;
+  padding: 3px 4px 3px 11px;
+}
+.view-switcher-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-blue);
+}
+.view-switcher-select {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  max-width: 200px;
+  cursor: pointer;
+}
+
 .export-btn {
   font-family: inherit;
   font-size: 0.8rem;
@@ -542,22 +571,17 @@
 .week-nav-header .eyebrow {
   padding: 0;
 }
-.viewing-client-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.week-nav-scope {
   background: var(--accent-blue-dim);
-  border: 1px solid rgba(52, 87, 255, 0.35);
   color: var(--accent-blue);
   border-radius: 999px;
   padding: 3px 9px;
   font-size: 0.7rem;
   font-weight: 500;
-  cursor: pointer;
   max-width: 140px;
-}
-.viewing-client-pill span {
-  flex: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .week-nav {
   display: flex;
@@ -705,28 +729,94 @@
 .week-label-input::placeholder {
   color: var(--text-tertiary);
 }
-.week-client-field {
-  display: block;
-  margin-top: 8px;
+.week-owner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
-.week-client-label {
-  display: block;
+.week-owner-label {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-tertiary);
-  margin-bottom: 3px;
 }
-.week-client-select {
-  display: block;
+.week-owner-chip {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
   background: var(--panel-bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  padding: 4px 8px;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.week-owner-chip-client {
+  color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+  border-color: rgba(52, 87, 255, 0.35);
+}
+.week-owner-move {
   font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  padding: 3px 4px;
   cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.week-owner-move:hover {
+  color: var(--text-primary);
+}
+.week-owner-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 5;
+  margin-top: 6px;
+  min-width: 230px;
+  max-width: 100%;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+}
+.week-owner-menu-title {
+  margin: 4px 8px 6px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+.week-owner-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+.week-owner-option span {
+  width: 1em;
+  color: var(--accent-green);
+}
+.week-owner-option:hover:not(:disabled) {
+  background: var(--panel-bg);
+}
+.week-owner-option-current {
+  color: var(--text-tertiary);
+  cursor: default;
 }
 .week-error {
   font-size: 0.72rem;
@@ -1064,6 +1154,13 @@
   .topbar-actions {
     flex-wrap: wrap;
   }
+  .view-switcher {
+    flex: 1 1 100%;
+  }
+  .view-switcher-select {
+    flex: 1;
+    max-width: none;
+  }
   .month-picker {
     flex: 1 1 auto;
     min-width: 0;
@@ -1132,52 +1229,4 @@
     justify-content: flex-start;
     width: 100%;
   }
-}
-
-/* ------------------------------------------------------- tour (driver.js) */
-.driver-popover {
-  background-color: var(--card-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-  font-family: var(--font-body);
-}
-.driver-popover-title {
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-}
-.driver-popover-description {
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-.driver-popover-close-btn {
-  color: var(--text-tertiary);
-}
-.driver-popover-close-btn:hover,
-.driver-popover-close-btn:focus {
-  color: var(--text-primary);
-}
-.driver-popover-progress-text {
-  color: var(--text-tertiary);
-  font-size: 0.72rem;
-}
-.driver-popover-footer-btn {
-  background-color: var(--panel-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-family: var(--font-body);
-  font-size: 0.78rem;
-  padding: 5px 10px;
-}
-.driver-popover-footer-btn:hover,
-.driver-popover-footer-btn:focus {
-  background-color: var(--accent-blue-dim);
-  border-color: rgba(52, 87, 255, 0.35);
-  color: var(--accent-blue);
-}
-.driver-popover-arrow {
-  border-color: var(--card-bg);
 }
