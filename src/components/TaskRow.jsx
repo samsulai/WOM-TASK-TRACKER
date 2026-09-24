@@ -4,7 +4,7 @@ function statusSlug(status) {
   return status.toLowerCase().replace(/\s+/g, '-')
 }
 
-export default function TaskRow({ task, saving, error, onFieldChange, onFlush, onDelete }) {
+export default function TaskRow({ task, saving, error, onFieldChange, onFlush, onDelete, readOnly }) {
   const handleText = (field) => (e) => onFieldChange(task.id, { [field]: e.target.value })
   const handleHours = (e) => {
     const value = e.target.value === '' ? 0 : Number(e.target.value)
@@ -30,6 +30,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           type="text"
           value={task.project}
           placeholder="Project"
+          disabled={readOnly}
           onChange={handleText('project')}
           onBlur={() => onFlush(task.id)}
         />
@@ -38,6 +39,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
         <select
           className={`status-select status-${statusSlug(task.status)}`}
           value={task.status}
+          disabled={readOnly}
           onChange={(e) => handleStatusChange(e.target.value)}
         >
           {STATUS_OPTIONS.map((s) => (
@@ -55,6 +57,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
             max="168"
             step="0.25"
             value={task.hours}
+            disabled={readOnly}
             onChange={handleHours}
             onBlur={() => onFlush(task.id)}
           />
@@ -67,6 +70,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           type="text"
           value={task.notes}
           placeholder="Notes"
+          disabled={readOnly}
           onChange={handleText('notes')}
           onBlur={() => onFlush(task.id)}
         />
@@ -76,6 +80,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           <input
             type="checkbox"
             checked={task.done}
+            disabled={readOnly}
             onChange={(e) => handleDoneChange(e.target.checked)}
           />
           <span className="check-box" aria-hidden="true" />
@@ -90,14 +95,16 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
               <button onClick={() => onFlush(task.id)}>Retry</button>
             </span>
           )}
-          <button
-            className="icon-btn icon-btn-danger"
-            aria-label="Delete task"
-            title="Delete task"
-            onClick={() => onDelete(task.id)}
-          >
-            ✕
-          </button>
+          {!readOnly && (
+            <button
+              className="icon-btn icon-btn-danger"
+              aria-label="Delete task"
+              title="Delete task"
+              onClick={() => onDelete(task.id)}
+            >
+              ✕
+            </button>
+          )}
         </div>
       </td>
     </tr>

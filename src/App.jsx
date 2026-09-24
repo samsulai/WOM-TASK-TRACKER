@@ -6,6 +6,7 @@ import StatsBar from './components/StatsBar'
 import WeekNav from './components/WeekNav'
 import ClientsPanel from './components/ClientsPanel'
 import { formatWeekStart } from './format'
+import { startTour, maybeAutoStartTour } from './tour'
 import './App.css'
 
 const SAVE_DEBOUNCE_MS = 600
@@ -269,6 +270,16 @@ export default function App() {
     // clientId is set once via lazy useState initializer and never changes,
     // so this effect still only runs once on mount.
   }, [clientId])
+
+  // First-time visitors get the tour automatically, once ever (tracked in
+  // localStorage); everyone can re-trigger it manually via the "?" button.
+  // The short delay lets the just-loaded content actually paint before
+  // driver.js goes looking for the elements it highlights.
+  useEffect(() => {
+    if (loading || loadError) return
+    const timer = setTimeout(() => maybeAutoStartTour(!clientId), 400)
+    return () => clearTimeout(timer)
+  }, [loading, loadError, clientId])
 
   // ---------------------------------------------------------------------
   // Task editing: optimistic local update + debounced save, with retry on
@@ -552,6 +563,10 @@ export default function App() {
   const selectedWeek =
     (selectedWeekId && visibleWeeks.find((w) => w.id === selectedWeekId)) || currentWeek
   const clientName = clientId ? clients.find((c) => c.id === clientId)?.name : null
+  // Anyone on a client link gets a view-only experience: they can browse
+  // weeks, see totals, and export CSV, but never add/edit/delete anything.
+  // Only the admin's own link (no clientId) can make changes.
+  const readOnly = Boolean(clientId)
   const viewingClientName = viewingClientId ? clients.find((c) => c.id === viewingClientId)?.name : null
 
   // Per-client rollup for the admin Clients panel: how much is going on with
@@ -680,7 +695,7 @@ export default function App() {
           </div>
           <div className="topbar-actions">
             {!clientId && (
-              <button className="export-btn" onClick={() => setClientsPanelOpen((v) => !v)}>
+              <button id="tour-clients-btn" className="export-btn" onClick={() => setClientsPanelOpen((v) => !v)}>
                 Clients
               </button>
             )}
@@ -691,8 +706,21 @@ export default function App() {
               value={exportMonth}
               onChange={(e) => setExportMonth(e.target.value)}
             />
-            <button className="export-btn" onClick={exportCsv} disabled={filteredExportRows.length === 0}>
+            <button
+              id="tour-export-btn"
+              className="export-btn"
+              onClick={exportCsv}
+              disabled={filteredExportRows.length === 0}
+            >
               Export CSV
+            </button>
+            <button
+              className="theme-toggle"
+              onClick={() => startTour(!clientId)}
+              aria-label="Take a tour"
+              title="Take a tour"
+            >
+              ?
             </button>
             <button
               className="theme-toggle"
@@ -763,19 +791,22 @@ export default function App() {
               onDeleteWeek={deleteWeek}
               onFlushTask={flushTaskSave}
               clients={!clientId ? clients : null}
+              readOnly={readOnly}
             />
           ) : (
             <div className="week-empty-prompt">
               <p className="eyebrow">Week of</p>
               <h2>{formatWeekStart(currentWeekStart, { year: false })}</h2>
-              <p>No tasks logged yet for this week.</p>
-              <button className="add-week-btn" onClick={addWeek}>
-                + Add week
-              </button>
+              <p>{readOnly ? 'Nothing logged for this week yet.' : 'No tasks logged yet for this week.'}</p>
+              {!readOnly && (
+                <button className="add-week-btn" onClick={addWeek}>
+                  + Add week
+                </button>
+              )}
             </div>
           )}
 
-          {selectedWeek && (
+          {selectedWeek && !readOnly && (
             <button className="add-week-btn" onClick={addWeek}>
               + Add week
             </button>

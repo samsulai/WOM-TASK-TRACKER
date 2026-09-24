@@ -101,6 +101,13 @@ login yet, the URL is what grants access.
 - Each client's link (`?client=<their-id>`) scopes the *entire* app to just
   their weeks/tasks — totals, stats, the week list, CSV export. They don't
   see the Clients button or anyone else's data in the UI.
+- **Client links are view-only.** A client can browse their weeks, see
+  totals, and export their own CSV, but every add/edit/delete control is
+  hidden and every field is disabled — they can't log hours, change
+  status, or remove anything themselves. Only the admin link can make
+  changes. (If you ever want clients to self-report their own hours
+  instead, that's a one-line flip of the `readOnly` flag in `App.jsx` —
+  ask before assuming which direction fits a given client relationship.)
 - Assign an existing week to a client (or pull it back to internal) from the
   dropdown on that week's card, in the admin view.
 - **This is a capability link, not real access control.** Like the rest of

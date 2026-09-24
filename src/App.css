@@ -801,6 +801,24 @@
   font-family: inherit;
   transition: border-color 0.15s ease;
 }
+/* Read-only mode (client links): fields stay fully legible -- this is the
+   client's primary view, not a faded edge case -- just non-interactive. */
+.task-table input:disabled,
+.task-table select:disabled,
+.week-date-input:disabled,
+.week-label-input:disabled {
+  opacity: 1;
+  cursor: default;
+  -webkit-text-fill-color: var(--text-primary);
+}
+.task-table input:disabled:hover,
+.task-table select:disabled:hover {
+  border-color: var(--border);
+}
+.check-control input:disabled,
+.check-control input:disabled + .check-box {
+  cursor: default;
+}
 .task-table input[type='text']:hover,
 .task-table input[type='number']:hover,
 .task-table select:hover {
@@ -1114,4 +1132,52 @@
     justify-content: flex-start;
     width: 100%;
   }
+}
+
+/* ------------------------------------------------------- tour (driver.js) */
+.driver-popover {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  font-family: var(--font-body);
+}
+.driver-popover-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.driver-popover-description {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+.driver-popover-close-btn {
+  color: var(--text-tertiary);
+}
+.driver-popover-close-btn:hover,
+.driver-popover-close-btn:focus {
+  color: var(--text-primary);
+}
+.driver-popover-progress-text {
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+}
+.driver-popover-footer-btn {
+  background-color: var(--panel-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  padding: 5px 10px;
+}
+.driver-popover-footer-btn:hover,
+.driver-popover-footer-btn:focus {
+  background-color: var(--accent-blue-dim);
+  border-color: rgba(52, 87, 255, 0.35);
+  color: var(--accent-blue);
+}
+.driver-popover-arrow {
+  border-color: var(--card-bg);
 }

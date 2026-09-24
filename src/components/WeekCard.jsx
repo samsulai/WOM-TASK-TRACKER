@@ -13,6 +13,7 @@ export default function WeekCard({
   onDeleteWeek,
   onFlushTask,
   clients,
+  readOnly,
 }) {
   const weekHours = tasks.reduce((sum, t) => sum + Number(t.hours || 0), 0)
   const doneCount = tasks.filter((t) => t.done).length
@@ -27,6 +28,7 @@ export default function WeekCard({
             className="week-date-input"
             type="date"
             value={week.week_start}
+            disabled={readOnly}
             onChange={(e) => onUpdateWeekField(week.id, { week_start: e.target.value })}
           />
           <input
@@ -34,6 +36,7 @@ export default function WeekCard({
             type="text"
             placeholder="Add a label…"
             value={week.label}
+            disabled={readOnly}
             onChange={(e) => onUpdateWeekField(week.id, { label: e.target.value })}
           />
           {clients && (
@@ -73,14 +76,16 @@ export default function WeekCard({
             </div>
           )}
         </div>
-        <button
-          className="icon-btn icon-btn-danger"
-          aria-label="Delete week"
-          title="Delete week"
-          onClick={() => onDeleteWeek(week.id)}
-        >
-          Del
-        </button>
+        {!readOnly && (
+          <button
+            className="icon-btn icon-btn-danger"
+            aria-label="Delete week"
+            title="Delete week"
+            onClick={() => onDeleteWeek(week.id)}
+          >
+            Del
+          </button>
+        )}
       </div>
 
       <table className="task-table">
@@ -104,6 +109,7 @@ export default function WeekCard({
               onFieldChange={onUpdateTaskField}
               onFlush={onFlushTask}
               onDelete={onDeleteTask}
+              readOnly={readOnly}
             />
           ))}
           {tasks.length === 0 && (
@@ -116,9 +122,11 @@ export default function WeekCard({
         </tbody>
       </table>
 
-      <button className="add-task-btn" onClick={() => onAddTask(week.id)}>
-        + Add task
-      </button>
+      {!readOnly && (
+        <button className="add-task-btn" onClick={() => onAddTask(week.id)}>
+          + Add task
+        </button>
+      )}
     </section>
   )
 }
