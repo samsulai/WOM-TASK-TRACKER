@@ -37,18 +37,22 @@ export default function WeekCard({
             onChange={(e) => onUpdateWeekField(week.id, { label: e.target.value })}
           />
           {clients && (
-            <select
-              className="week-client-select"
-              value={week.client_id || ''}
-              onChange={(e) => onUpdateWeekField(week.id, { client_id: e.target.value || null })}
-            >
-              <option value="">— Internal —</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <label className="week-client-field">
+              <span className="week-client-label">Assign this week to:</span>
+              <select
+                className="week-client-select"
+                value={week.client_id || ''}
+                title="Assign this whole week to a client, or keep it internal"
+                onChange={(e) => onUpdateWeekField(week.id, { client_id: e.target.value || null })}
+              >
+                <option value="">Internal (not assigned to a client)</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
           {weekError && <p className="week-error">{weekError}</p>}
         </div>

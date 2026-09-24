@@ -128,6 +128,10 @@ export default function App() {
   const [fieldErrors, setFieldErrors] = useState(() => new Map())
   const [exportMonth, setExportMonth] = useState('')
   const [selectedWeekId, setSelectedWeekId] = useState(null)
+  // Admin-only, local UI filter: "view as this client" narrows the weeks
+  // list/stats/totals to just their data without leaving your own admin
+  // session (unlike clientId, which comes from the URL and can't change).
+  const [viewingClientId, setViewingClientId] = useState(null)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -526,13 +530,29 @@ export default function App() {
     return map
   }, [tasksByWeek])
 
+  // "View as client" filter (admin only): narrows weeks/tasks down to just
+  // one client's data, same idea as clientId but toggleable from the UI
+  // instead of fixed by the URL.
+  const visibleWeeks = useMemo(() => {
+    if (clientId || !viewingClientId) return weeks
+    return weeks.filter((w) => w.client_id === viewingClientId)
+  }, [weeks, clientId, viewingClientId])
+
+  const visibleTasks = useMemo(() => {
+    if (clientId || !viewingClientId) return tasks
+    const visibleWeekIds = new Set(visibleWeeks.map((w) => w.id))
+    return tasks.filter((t) => visibleWeekIds.has(t.week_id))
+  }, [tasks, clientId, viewingClientId, visibleWeeks])
+
   const currentWeekStart = useMemo(() => todayAsWeekStart(), [])
   const currentWeek = useMemo(
-    () => weeks.find((w) => w.week_start === currentWeekStart),
-    [weeks, currentWeekStart]
+    () => visibleWeeks.find((w) => w.week_start === currentWeekStart),
+    [visibleWeeks, currentWeekStart]
   )
-  const selectedWeek = selectedWeekId ? weeks.find((w) => w.id === selectedWeekId) : currentWeek
+  const selectedWeek =
+    (selectedWeekId && visibleWeeks.find((w) => w.id === selectedWeekId)) || currentWeek
   const clientName = clientId ? clients.find((c) => c.id === clientId)?.name : null
+  const viewingClientName = viewingClientId ? clients.find((c) => c.id === viewingClientId)?.name : null
 
   // Per-client rollup for the admin Clients panel: how much is going on with
   // each client at a glance, without having to open their link.
@@ -554,29 +574,29 @@ export default function App() {
 
   const projectTotals = useMemo(() => {
     const totals = new Map()
-    for (const task of tasks) {
+    for (const task of visibleTasks) {
       const key = task.project.trim() || '(no project)'
       totals.set(key, (totals.get(key) || 0) + Number(task.hours || 0))
     }
     return [...totals.entries()].sort((a, b) => b[1] - a[1])
-  }, [tasks])
+  }, [visibleTasks])
 
   const taskStats = useMemo(
     () => ({
-      tasksOpen: tasks.filter((t) => !t.done).length,
-      tasksDone: tasks.filter((t) => t.done).length,
+      tasksOpen: visibleTasks.filter((t) => !t.done).length,
+      tasksDone: visibleTasks.filter((t) => t.done).length,
     }),
-    [tasks]
+    [visibleTasks]
   )
 
   const grandTotal = useMemo(
-    () => tasks.reduce((sum, t) => sum + Number(t.hours || 0), 0),
-    [tasks]
+    () => visibleTasks.reduce((sum, t) => sum + Number(t.hours || 0), 0),
+    [visibleTasks]
   )
 
   const exportRows = useMemo(() => {
     const rows = []
-    for (const week of weeks) {
+    for (const week of visibleWeeks) {
       for (const task of tasksByWeek.get(week.id) || []) {
         rows.push({
           weekStart: week.week_start,
@@ -590,7 +610,7 @@ export default function App() {
       }
     }
     return rows
-  }, [weeks, tasksByWeek])
+  }, [visibleWeeks, tasksByWeek])
 
   const filteredExportRows = useMemo(
     () => exportRows.filter((r) => !exportMonth || r.weekStart.slice(0, 7) === exportMonth),
@@ -688,11 +708,14 @@ export default function App() {
 
       <div className="app-body">
         <WeekNav
-          weeks={weeks}
+          weeks={visibleWeeks}
           weekHoursById={weekHoursById}
           selectedWeekId={selectedWeek?.id ?? null}
           currentWeekStart={currentWeekStart}
           onSelect={setSelectedWeekId}
+          clients={clients}
+          viewingClientName={viewingClientName}
+          onClearViewingClient={() => setViewingClientId(null)}
         />
 
         <main className="app-content">
@@ -709,12 +732,17 @@ export default function App() {
               clientStats={clientStats}
               onAddClient={addClient}
               onDeleteClient={deleteClient}
+              onViewClient={(id) => {
+                setViewingClientId(id)
+                setSelectedWeekId(null)
+                setClientsPanelOpen(false)
+              }}
               onClose={() => setClientsPanelOpen(false)}
             />
           )}
 
           <StatsBar
-            weeksCount={weeks.length}
+            weeksCount={visibleWeeks.length}
             tasksOpen={taskStats.tasksOpen}
             tasksDone={taskStats.tasksDone}
             hoursTotal={grandTotal}

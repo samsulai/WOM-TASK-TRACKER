@@ -289,6 +289,11 @@
 .clients-panel-header .eyebrow {
   margin: 0;
 }
+.clients-panel-hint {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 0 0 14px;
+}
 .clients-add-form {
   display: flex;
   gap: 8px;
@@ -328,10 +333,30 @@
   flex-direction: column;
   gap: 3px;
   min-width: 0;
+  flex: 1;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s ease;
+}
+.clients-list-info:hover {
+  background: var(--panel-bg);
 }
 .clients-list-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.9rem;
   color: var(--text-primary);
+}
+.clients-list-view-icon {
+  font-size: 0.75rem;
+  opacity: 0.6;
 }
 .clients-list-stats {
   font-family: var(--font-mono);
@@ -507,8 +532,32 @@
   border-right: 1px solid var(--border);
   padding: 16px 12px;
 }
-.week-nav-panel .eyebrow {
+.week-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 0 6px;
+}
+.week-nav-header .eyebrow {
+  padding: 0;
+}
+.viewing-client-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--accent-blue-dim);
+  border: 1px solid rgba(52, 87, 255, 0.35);
+  color: var(--accent-blue);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  max-width: 140px;
+}
+.viewing-client-pill span {
+  flex: none;
 }
 .week-nav {
   display: flex;
@@ -552,12 +601,31 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.week-nav-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 .week-nav-badge {
   font-family: var(--font-mono);
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--accent-green);
+}
+.week-nav-owner {
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  color: var(--text-tertiary);
+}
+.week-nav-owner-client {
+  background: var(--accent-blue-dim);
+  border-color: rgba(52, 87, 255, 0.3);
+  color: var(--accent-blue);
 }
 .week-nav-hours {
   flex: none;
@@ -637,9 +705,20 @@
 .week-label-input::placeholder {
   color: var(--text-tertiary);
 }
+.week-client-field {
+  display: block;
+  margin-top: 8px;
+}
+.week-client-label {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 3px;
+}
 .week-client-select {
   display: block;
-  margin-top: 6px;
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 6px;

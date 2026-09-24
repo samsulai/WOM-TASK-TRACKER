@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { formatHours } from '../format'
 
-export default function ClientsPanel({ clients, clientStats, onAddClient, onDeleteClient, onClose }) {
+export default function ClientsPanel({
+  clients,
+  clientStats,
+  onAddClient,
+  onDeleteClient,
+  onViewClient,
+  onClose,
+}) {
   const [name, setName] = useState('')
   const [copiedId, setCopiedId] = useState(null)
 
@@ -47,6 +54,9 @@ export default function ClientsPanel({ clients, clientStats, onAddClient, onDele
             ✕
           </button>
         </div>
+        <p className="clients-panel-hint">
+          Click a client to view only their weeks. Use ⧉ to copy their link, ✕ to remove them.
+        </p>
 
         <form className="clients-add-form" onSubmit={handleAdd}>
           <input
@@ -66,14 +76,23 @@ export default function ClientsPanel({ clients, clientStats, onAddClient, onDele
             const stats = clientStats.get(c.id)
             return (
               <li key={c.id}>
-                <div className="clients-list-info">
-                  <span className="clients-list-name">{c.name}</span>
+                <button
+                  className="clients-list-info"
+                  onClick={() => onViewClient(c.id)}
+                  title={`View only ${c.name}'s weeks`}
+                >
+                  <span className="clients-list-name">
+                    <span className="clients-list-view-icon" aria-hidden="true">
+                      👁
+                    </span>
+                    {c.name}
+                  </span>
                   <span className="clients-list-stats">
                     {stats
                       ? `${formatHours(stats.hoursTotal)} · ${stats.weeksCount} week${stats.weeksCount === 1 ? '' : 's'} · ${stats.tasksOpen} open · ${stats.tasksDone} done`
                       : 'No weeks yet'}
                   </span>
-                </div>
+                </button>
                 <div className="clients-list-actions">
                   <button
                     className="icon-btn icon-btn-copy"
