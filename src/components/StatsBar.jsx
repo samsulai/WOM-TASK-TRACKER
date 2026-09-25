@@ -5,7 +5,7 @@ export default function StatsBar({ weeksCount, tasksOpen, tasksDone, hoursTotal 
     { label: 'Weeks logged', value: weeksCount },
     { label: 'Tasks open', value: tasksOpen, className: 'stat-tile-value-blue' },
     { label: 'Tasks done', value: tasksDone, className: 'stat-tile-value-green' },
-    { label: 'Hours total', value: formatHours(hoursTotal), className: 'stat-tile-value-green' },
+    { label: 'Hours total', value: formatHours(hoursTotal), className: 'stat-tile-value-blue' },
   ]
 
   return (

@@ -6,6 +6,7 @@ import StatsBar from './components/StatsBar'
 import WeekNav from './components/WeekNav'
 import ClientsPanel from './components/ClientsPanel'
 import ViewSwitcher from './components/ViewSwitcher'
+import { Download, Moon, Plus, Sun, Users } from 'lucide-react'
 import { formatWeekStart } from './format'
 import { INTERNAL_SCOPE } from './scope'
 import './App.css'
@@ -584,13 +585,27 @@ export default function App() {
     return tasks.filter((t) => visibleWeekIds.has(t.week_id))
   }, [tasks, clientId, viewScope, visibleWeeks])
 
+  // Newest first. Realtime inserts and new weeks arrive at the end of the
+  // array, so keep the list (and prev/next stepping) ordered by date here.
+  const sortedWeeks = useMemo(
+    () =>
+      [...visibleWeeks].sort(
+        (a, b) => b.week_start.localeCompare(a.week_start) || a.created_at?.localeCompare(b.created_at || '') || 0
+      ),
+    [visibleWeeks]
+  )
+
   const currentWeekStart = useMemo(() => todayAsWeekStart(), [])
   const currentWeek = useMemo(
-    () => visibleWeeks.find((w) => w.week_start === currentWeekStart),
-    [visibleWeeks, currentWeekStart]
+    () => sortedWeeks.find((w) => w.week_start === currentWeekStart),
+    [sortedWeeks, currentWeekStart]
   )
   const selectedWeek =
-    (selectedWeekId && visibleWeeks.find((w) => w.id === selectedWeekId)) || currentWeek
+    (selectedWeekId && sortedWeeks.find((w) => w.id === selectedWeekId)) || currentWeek
+  const selectedIndex = selectedWeek ? sortedWeeks.findIndex((w) => w.id === selectedWeek.id) : -1
+  // "Previous" steps back in time (further down the newest-first list).
+  const olderWeek = selectedIndex >= 0 ? sortedWeeks[selectedIndex + 1] : undefined
+  const newerWeek = selectedIndex > 0 ? sortedWeeks[selectedIndex - 1] : undefined
   const clientName = clientId ? clients.find((c) => c.id === clientId)?.name : null
   // Anyone on a client link gets a view-only experience: they can browse
   // weeks, see totals, and export CSV, but never add/edit/delete anything.
@@ -698,7 +713,7 @@ export default function App() {
     setGlobalNotice(null)
   }
 
-  const addWeekLabel = newWeekClientId && !clientId && scopeName ? `+ Add week for ${scopeName}` : '+ Add week'
+  const addWeekLabel = newWeekClientId && !clientId && scopeName ? `Add week for ${scopeName}` : 'Add week'
 
   if (loading) {
     return (
@@ -737,7 +752,7 @@ export default function App() {
             )}
             {!clientId && (
               <button className="export-btn" onClick={() => setClientsPanelOpen((v) => !v)}>
-                Clients
+                <Users size={18} aria-hidden="true" /> Clients
               </button>
             )}
             <input
@@ -752,7 +767,7 @@ export default function App() {
               onClick={exportCsv}
               disabled={filteredExportRows.length === 0}
             >
-              Export CSV
+              <Download size={18} aria-hidden="true" /> Export CSV
             </button>
             <button
               className="theme-toggle"
@@ -760,7 +775,7 @@ export default function App() {
               aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
               title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
             >
-              {theme === 'light' ? '🌙' : '☀️'}
+              {theme === 'light' ? <Moon size={20} aria-hidden="true" /> : <Sun size={20} aria-hidden="true" />}
             </button>
           </div>
         </div>
@@ -768,7 +783,7 @@ export default function App() {
 
       <div className="app-body">
         <WeekNav
-          weeks={visibleWeeks}
+          weeks={sortedWeeks}
           weekHoursById={weekHoursById}
           selectedWeekId={selectedWeek?.id ?? null}
           currentWeekStart={currentWeekStart}
@@ -822,6 +837,9 @@ export default function App() {
               onFlushTask={flushTaskSave}
               clients={!clientId ? clients : null}
               onMoveWeek={moveWeek}
+              onPrevWeek={olderWeek ? () => setSelectedWeekId(olderWeek.id) : null}
+              onNextWeek={newerWeek ? () => setSelectedWeekId(newerWeek.id) : null}
+              onToday={currentWeek && currentWeek.id !== selectedWeek.id ? () => setSelectedWeekId(currentWeek.id) : null}
               readOnly={readOnly}
             />
           ) : (
@@ -831,7 +849,7 @@ export default function App() {
               <p>{readOnly ? 'Nothing logged for this week yet.' : 'No tasks logged yet for this week.'}</p>
               {!readOnly && (
                 <button className="add-week-btn" onClick={addWeek}>
-                  {addWeekLabel}
+                  <Plus size={18} aria-hidden="true" /> {addWeekLabel}
                 </button>
               )}
             </div>
@@ -839,7 +857,7 @@ export default function App() {
 
           {selectedWeek && !readOnly && (
             <button className="add-week-btn" onClick={addWeek}>
-              {addWeekLabel}
+              <Plus size={18} aria-hidden="true" /> {addWeekLabel}
             </button>
           )}
         </main>

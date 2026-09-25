@@ -1,3 +1,5 @@
+import { Trash2 } from 'lucide-react'
+
 const STATUS_OPTIONS = ['Not Started', 'In Progress', 'Blocked', 'Done']
 
 function statusSlug(status) {
@@ -35,6 +37,17 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           onBlur={() => onFlush(task.id)}
         />
       </td>
+      <td data-label="Notes">
+        <input
+          className="notes-input"
+          type="text"
+          value={task.notes}
+          placeholder="Notes"
+          disabled={readOnly}
+          onChange={handleText('notes')}
+          onBlur={() => onFlush(task.id)}
+        />
+      </td>
       <td data-label="Status">
         <select
           className={`status-select status-${statusSlug(task.status)}`}
@@ -64,17 +77,6 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
           <span className="hours-suffix">hrs</span>
         </div>
       </td>
-      <td data-label="Notes">
-        <input
-          className="notes-input"
-          type="text"
-          value={task.notes}
-          placeholder="Notes"
-          disabled={readOnly}
-          onChange={handleText('notes')}
-          onBlur={() => onFlush(task.id)}
-        />
-      </td>
       <td className="task-done-cell" data-label="Done">
         <label className="check-control">
           <input
@@ -102,7 +104,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
               title="Delete task"
               onClick={() => onDelete(task.id)}
             >
-              ✕
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           )}
         </div>

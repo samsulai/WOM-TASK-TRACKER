@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatHours } from '../format'
+import { Check, Copy, Eye, Plus, Trash2, X } from 'lucide-react'
 
 export default function ClientsPanel({
   clients,
@@ -51,11 +52,11 @@ export default function ClientsPanel({
         <div className="clients-panel-header">
           <p className="eyebrow">Clients</p>
           <button className="icon-btn icon-btn-ghost" onClick={onClose} aria-label="Close clients panel">
-            ✕
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
         <p className="clients-panel-hint">
-          Click a client to view only their weeks. Use ⧉ to copy their link, ✕ to remove them.
+          Click a client to view only their weeks. Use the copy button for their shareable link, or the bin to remove them.
         </p>
 
         <form className="clients-add-form" onSubmit={handleAdd}>
@@ -67,7 +68,7 @@ export default function ClientsPanel({
             autoFocus
           />
           <button type="submit" className="add-task-btn">
-            + Add
+            <Plus size={18} aria-hidden="true" /> Add
           </button>
         </form>
 
@@ -82,9 +83,7 @@ export default function ClientsPanel({
                   title={`View only ${c.name}'s weeks`}
                 >
                   <span className="clients-list-name">
-                    <span className="clients-list-view-icon" aria-hidden="true">
-                      👁
-                    </span>
+                    <Eye size={15} className="clients-list-view-icon" aria-hidden="true" />
                     {c.name}
                   </span>
                   <span className="clients-list-stats">
@@ -100,7 +99,7 @@ export default function ClientsPanel({
                     title="Copy link"
                     onClick={() => copyLink(c.id)}
                   >
-                    {copiedId === c.id ? '✓' : '⧉'}
+                    {copiedId === c.id ? <Check size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}
                   </button>
                   <button
                     className="icon-btn icon-btn-danger"
@@ -108,7 +107,7 @@ export default function ClientsPanel({
                     title={`Delete ${c.name}`}
                     onClick={() => onDeleteClient(c.id)}
                   >
-                    ✕
+                    <Trash2 size={18} aria-hidden="true" />
                   </button>
                 </div>
               </li>

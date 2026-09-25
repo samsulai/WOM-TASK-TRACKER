@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ArrowRightLeft, Check, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import TaskRow from './TaskRow'
 import { formatHours } from '../format'
 
@@ -15,6 +16,9 @@ export default function WeekCard({
   onFlushTask,
   clients,
   onMoveWeek,
+  onPrevWeek,
+  onNextWeek,
+  onToday,
   readOnly,
 }) {
   const weekHours = tasks.reduce((sum, t) => sum + Number(t.hours || 0), 0)
@@ -23,6 +27,38 @@ export default function WeekCard({
 
   return (
     <section className="week-card">
+      <div className="week-toolbar">
+        <div className="week-stepper">
+          <button
+            type="button"
+            className="stepper-btn"
+            aria-label="Previous week"
+            title="Previous week"
+            disabled={!onPrevWeek}
+            onClick={onPrevWeek}
+          >
+            <ChevronLeft size={20} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="stepper-btn"
+            aria-label="Next week"
+            title="Next week"
+            disabled={!onNextWeek}
+            onClick={onNextWeek}
+          >
+            <ChevronRight size={20} aria-hidden="true" />
+          </button>
+          <button type="button" className="today-btn" disabled={!onToday} onClick={onToday}>
+            Today
+          </button>
+        </div>
+        {!readOnly && (
+          <button className="add-task-btn add-task-btn-primary" onClick={() => onAddTask(week.id)}>
+            <Plus size={18} aria-hidden="true" /> Add task
+          </button>
+        )}
+      </div>
       <div className="week-card-header">
         <div className="week-heading">
           <p className="eyebrow">Week of</p>
@@ -70,7 +106,7 @@ export default function WeekCard({
             title="Delete week"
             onClick={() => onDeleteWeek(week.id)}
           >
-            Del
+            <Trash2 size={16} aria-hidden="true" /> Delete week
           </button>
         )}
       </div>
@@ -79,9 +115,9 @@ export default function WeekCard({
         <thead>
           <tr>
             <th>Project</th>
-            <th>Status</th>
-            <th>Hours</th>
             <th>Notes</th>
+            <th>Status</th>
+            <th className="th-hours">Hours</th>
             <th>Done</th>
             <th></th>
           </tr>
@@ -111,7 +147,7 @@ export default function WeekCard({
 
       {!readOnly && (
         <button className="add-task-btn" onClick={() => onAddTask(week.id)}>
-          + Add task
+          <Plus size={18} aria-hidden="true" /> Add task
         </button>
       )}
     </section>
@@ -153,7 +189,7 @@ function WeekOwner({ week, clients, onMove }) {
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        Move…
+        <ArrowRightLeft size={14} aria-hidden="true" /> Move…
       </button>
       {open && (
         <div className="week-owner-menu" role="menu">
@@ -172,7 +208,7 @@ function WeekOwner({ week, clients, onMove }) {
                   onMove(o.id)
                 }}
               >
-                <span aria-hidden="true">{current ? '✓' : ''}</span> {o.name}
+                <span className="week-owner-check" aria-hidden="true">{current && <Check size={16} />}</span> {o.name}
               </button>
             )
           })}

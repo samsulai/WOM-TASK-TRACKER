@@ -1,3 +1,4 @@
+import { Eye } from 'lucide-react'
 import { INTERNAL_SCOPE } from '../scope'
 
 // Admin-only. Picks WHICH data you're looking at -- it never changes any
@@ -6,6 +7,7 @@ import { INTERNAL_SCOPE } from '../scope'
 export default function ViewSwitcher({ clients, value, onChange }) {
   return (
     <label className="view-switcher">
+      <Eye size={18} className="view-switcher-icon" aria-hidden="true" />
       <span className="view-switcher-label">Viewing</span>
       <select
         className="view-switcher-select"

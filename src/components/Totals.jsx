@@ -1,11 +1,11 @@
 import { formatHours } from '../format'
 
 const SEGMENT_COLORS = [
-  'var(--accent-blue)',
-  'var(--accent-green)',
-  'var(--accent-amber)',
-  'var(--accent-violet)',
-  'var(--accent-red)',
+  'var(--seg-1)',
+  'var(--seg-2)',
+  'var(--seg-3)',
+  'var(--seg-4)',
+  'var(--seg-5)',
 ]
 
 export default function Totals({ projectTotals, grandTotal }) {
@@ -29,6 +29,7 @@ export default function Totals({ projectTotals, grandTotal }) {
           <div className="ledger-bar" role="img" aria-label="Hours distribution by project">
             {projectTotals.map(([project, hours], i) => {
               const pct = grandTotal > 0 ? (hours / grandTotal) * 100 : 0
+              if (pct === 0) return null
               return (
                 <span
                   key={project}

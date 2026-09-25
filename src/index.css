@@ -5,27 +5,52 @@
   --font-body: 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
 
-  --bg: #0a0b1a;
-  --card-bg: #0d0e1c;
-  --panel-bg: #1c1e2e;
-  --border: #262a3d;
-  --border-soft: #1a1c2c;
-  --text-primary: #f2f3f7;
-  --text-secondary: #8b8fa3;
-  --text-tertiary: #5b5f76;
+  /* Shape, motion and interaction-state tokens (Material-style scale). */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 12px;
+  --r-btn: 6px;
+  --r-pill: 999px;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur: 150ms;
+  --hover: rgba(241, 243, 255, 0.08);
+  --pressed: rgba(241, 243, 255, 0.14);
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
+  --elev-2: 0 2px 6px 2px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elev-3: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
 
-  --accent-blue: #3457ff;
-  --accent-blue-dim: rgba(52, 87, 255, 0.15);
+  /* Brand palette: navy #14173a + blue #0169ff. Everything below is
+     derived from those two; green/red are kept only as status colors
+     (Done / Blocked & destructive actions). */
+  --bg: #0d1030;
+  --card-bg: #14173a;
+  --panel-bg: #1c2050;
+  --border: #2b3070;
+  --border-soft: #1f2359;
+  --pane-bg: #14173a;
+  --text-primary: #f1f3ff;
+  --text-secondary: #a3a9d6;
+  --text-tertiary: #7a81b5;
+
+  --accent-blue: #0169ff;
+  --accent-blue-text: #5b9dff;
+  --accent-blue-dim: rgba(1, 105, 255, 0.18);
+  --accent-blue-border: rgba(1, 105, 255, 0.45);
+  --accent-blue-strong: rgba(1, 105, 255, 0.3);
   --accent-green: #37d67a;
   --accent-green-dim: rgba(55, 214, 122, 0.15);
+  --accent-green-border: rgba(55, 214, 122, 0.35);
   --accent-red: #ff5c72;
   --accent-red-dim: rgba(255, 92, 114, 0.15);
+  --accent-red-border: rgba(255, 92, 114, 0.45);
 
-  /* Extension hues, ledger-bar/legend use only -- keep the three brand
-     accents above as the only colors used in UI chrome (buttons, links,
-     status). */
-  --accent-amber: #f5a623;
-  --accent-violet: #9b6bff;
+  /* Ledger-bar / legend segments: tints of the brand blue and navy. */
+  --seg-1: #0169ff;
+  --seg-2: #8ab8ff;
+  --seg-3: #4b56b8;
+  --seg-4: #c9dcff;
+  --seg-5: #2f8bff;
 
   background: var(--bg);
   color: var(--text-primary);
@@ -34,24 +59,39 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --bg: #f6f6f9;
+  --bg: #ffffff;
   --card-bg: #ffffff;
-  --panel-bg: #eef0f5;
-  --border: #dfe1ea;
-  --border-soft: #ebedf3;
-  --text-primary: #14151f;
-  --text-secondary: #565a70;
-  --text-tertiary: #8b8fa3;
+  --panel-bg: #f3f5fb;
+  --pane-bg: #f8f9fd;
+  --border: #e1e4ef;
+  --border-soft: #eceef6;
+  --text-primary: #14173a;
+  --text-secondary: #4a507d;
+  --text-tertiary: #666d99;
 
-  --accent-blue: #2f4fe0;
-  --accent-blue-dim: rgba(47, 79, 224, 0.1);
+  --accent-blue: #0169ff;
+  --accent-blue-text: #0169ff;
+  --accent-blue-dim: rgba(1, 105, 255, 0.1);
+  --accent-blue-border: rgba(1, 105, 255, 0.35);
+  --accent-blue-strong: rgba(1, 105, 255, 0.18);
   --accent-green: #12a35a;
   --accent-green-dim: rgba(18, 163, 90, 0.12);
+  --accent-green-border: rgba(18, 163, 90, 0.35);
   --accent-red: #d92c46;
   --accent-red-dim: rgba(217, 44, 70, 0.1);
+  --accent-red-border: rgba(217, 44, 70, 0.4);
 
-  --accent-amber: #b9790a;
-  --accent-violet: #6b46c1;
+  --seg-1: #0169ff;
+  --seg-2: #14173a;
+  --seg-3: #8ab8ff;
+  --seg-4: #4b56b8;
+  --seg-5: #c9dcff;
+
+  --hover: rgba(20, 23, 58, 0.06);
+  --pressed: rgba(20, 23, 58, 0.12);
+  --elev-1: 0 1px 2px rgba(20, 23, 58, 0.12), 0 1px 3px 1px rgba(20, 23, 58, 0.08);
+  --elev-2: 0 2px 6px 2px rgba(20, 23, 58, 0.12), 0 1px 2px rgba(20, 23, 58, 0.16);
+  --elev-3: 0 8px 24px rgba(20, 23, 58, 0.18), 0 2px 6px rgba(20, 23, 58, 0.12);
 }
 
 * {
@@ -61,14 +101,9 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(52, 87, 255, 0.12), transparent 60%),
-    var(--bg);
-}
-:root[data-theme='light'] body {
-  background:
-    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(47, 79, 224, 0.06), transparent 60%),
-    var(--bg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 h1,
