@@ -8,6 +8,7 @@ export default function ClientsPanel({
   onAddClient,
   onDeleteClient,
   onViewClient,
+  onUpdateClientEmail,
   onClose,
 }) {
   const [name, setName] = useState('')
@@ -110,6 +111,18 @@ export default function ClientsPanel({
                     <Trash2 size={18} aria-hidden="true" />
                   </button>
                 </div>
+                <input
+                  key={`${c.id}:${c.email || ''}`}
+                  type="email"
+                  className="clients-list-email"
+                  aria-label={`Report email for ${c.name}`}
+                  placeholder="Email for weekly reports"
+                  defaultValue={c.email || ''}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value !== (c.email || '')) onUpdateClientEmail(c.id, value)
+                  }}
+                />
               </li>
             )
           })}

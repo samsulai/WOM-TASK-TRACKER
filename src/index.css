@@ -3,7 +3,6 @@
   font: 18px/1.5 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
 
   --font-body: 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
 
   /* Shape, motion and interaction-state tokens (Material-style scale). */
   --r-sm: 4px;

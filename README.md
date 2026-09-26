@@ -152,9 +152,99 @@ login yet, the URL is what grants access.
   straight to the current week rather than one week at a time, so it stays
   correct even after a long gap between visits — since there's no backend
   cron, the check only runs when someone actually opens the app.
-- **CSV export**: the month picker next to "Export CSV" filters the download
-  to that month (matched against each task's week start date); leave it
-  blank to export everything.
+- **Export**: the **Export** menu downloads either an Excel file (`.xlsx`:
+  a formatted *Tasks* sheet with a totals row, a *By project* summary, and —
+  when the export spans more than one owner — a *By client* summary) or a
+  CSV. The month picker next to it filters the download to that month
+  (matched against each task's week start date); leave it blank to export
+  everything. Both formats respect the current **Viewing** selection.
+
+## Weekly reports (email to clients)
+
+Emails each client who had tasks logged in a week a summary (hours, done vs.
+open, every task) with the week attached as an Excel file and a link to their
+read-only page. Clients with no tasks that week, or no email on file, are
+skipped. Each client is emailed **at most once per week** (tracked in
+`report_log`), so a double click or a double trigger can't spam anyone.
+
+Sending needs a small server-side piece (a browser can't hold an email API
+key), so this is a Supabase Edge Function plus Resend for delivery.
+
+### One-time setup
+
+1. **Database.** Run
+   [`supabase/migrations/2026-09-25-weekly-report.sql`](supabase/migrations/2026-09-25-weekly-report.sql)
+   in the SQL Editor. It only *adds* a nullable `clients.email` column and a
+   `report_log` table (no policies, so the public key can't read it).
+2. **Resend.** Create an account at [resend.com](https://resend.com), add your
+   sending domain (Resend gives you DNS records to add at your registrar) and
+   wait for it to verify — without a verified domain, emails may land in spam
+   or be refused. Create an API key.
+3. **Edge Function.** In Supabase → *Edge Functions* → *Deploy a new function*
+   → name it exactly `weekly-report` and paste in
+   [`supabase/functions/weekly-report/index.ts`](supabase/functions/weekly-report/index.ts).
+   Turn **off "Verify JWT"** for this function: the newer `sb_publishable_…`
+   keys aren't JWTs, and the function protects itself with its own report key
+   (next step). (CLI alternative: `supabase functions deploy weekly-report --no-verify-jwt`.)
+4. **Secrets** (Edge Functions → *Secrets*):
+
+   | Name | Value |
+   |---|---|
+   | `RESEND_API_KEY` | your Resend API key |
+   | `REPORT_ADMIN_KEY` | a long random string you invent — this is the "report key" you type into the app |
+   | `REPORT_FROM` | `WordOut Media <reports@your-verified-domain.com>` |
+   | `APP_URL` | `https://tracker-olive-rho.vercel.app` (used for each client's link) |
+   | `REPORT_REPLY_TO` | optional — where client replies should go |
+
+### Using it
+
+1. Open **Clients** and type each client's email under their name (it saves
+   when you click away).
+2. Select the week you want in the Weeks list, then click **Reports** in the
+   top bar. The window lists every client who had tasks that week, with their
+   hours and whether they have an email / were already sent one.
+3. The first time on a device, enter the report key (the `REPORT_ADMIN_KEY`
+   secret). It's remembered on that device and hidden afterwards; **Change**
+   or **Forget** it from the bottom of the window.
+4. Optional: type your own address next to **Send a test to** and click
+   **Send test** to get one sample report to yourself only (marked `[TEST]`,
+   nothing is logged, nothing goes to any client).
+5. Click **Send to N clients**. You confirm the list first, then it sends.
+
+### Automating it (do this after you're happy with the manual sends)
+
+Once the test emails look right, schedule the same function to run every
+Friday with Supabase's `pg_cron` + `pg_net` (Database → Extensions → enable
+both). In the SQL Editor — replacing the two placeholders — run:
+
+```sql
+select cron.schedule(
+  'weekly-client-reports',
+  '0 16 * * 5', -- Fridays 16:00 UTC; adjust for your timezone
+  $$
+  select net.http_post(
+    url := 'https://<your-project-ref>.supabase.co/functions/v1/weekly-report',
+    headers := '{"Content-Type": "application/json", "x-report-key": "<your REPORT_ADMIN_KEY>"}'::jsonb,
+    body := '{"mode": "send"}'::jsonb
+  );
+  $$
+);
+```
+
+With no `weekStart` the function reports on the *current* week (Monday–Sunday,
+UTC). To stop it: `select cron.unschedule('weekly-client-reports');`.
+
+### Things to know
+
+- **Client email addresses are stored in the open `clients` table**, like
+  everything else here (see the capability-link caveat above): anyone holding
+  the public key could read them. Moving to real login (Future work) fixes
+  this; until then, only add addresses you're comfortable with that exposure.
+- The report key stops strangers from triggering emails, but it is typed into
+  the app and kept in that browser's local storage — treat it like a password
+  and use the app only on your own devices.
+- Resend's free tier has daily/monthly sending limits; check them if you have
+  many clients.
 
 ## Future work / ideas not yet implemented
 

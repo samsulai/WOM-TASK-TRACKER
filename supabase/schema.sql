@@ -22,6 +22,10 @@ create table if not exists clients (
   created_at  timestamptz not null default now()
 );
 
+-- Where the end-of-week report goes. Nullable: clients without an address are
+-- simply skipped when reports are sent.
+alter table clients add column if not exists email text;
+
 create table if not exists weeks (
   id          uuid primary key default gen_random_uuid(),
   week_start  date not null,
@@ -51,6 +55,20 @@ create table if not exists tasks (
 );
 
 create index if not exists tasks_week_id_idx on tasks (week_id);
+
+-- Which weekly reports have already gone out, so a report is never emailed
+-- twice for the same client + week (even if it's triggered twice). Row Level
+-- Security is enabled with NO policies on purpose: the anon key can't read or
+-- write it, only the weekly-report Edge Function (service role) can.
+create table if not exists report_log (
+  id          uuid primary key default gen_random_uuid(),
+  client_id   uuid not null references clients(id) on delete cascade,
+  week_start  date not null,
+  sent_to     text not null,
+  sent_at     timestamptz not null default now(),
+  unique (client_id, week_start)
+);
+alter table report_log enable row level security;
 
 -- ---------------------------------------------------------------------------
 -- Keep updated_at current on every UPDATE (used for optimistic-concurrency /

@@ -5,8 +5,11 @@ import Totals from './components/Totals'
 import StatsBar from './components/StatsBar'
 import WeekNav from './components/WeekNav'
 import ClientsPanel from './components/ClientsPanel'
+import ReportsPanel from './components/ReportsPanel'
 import ViewSwitcher from './components/ViewSwitcher'
-import { Download, Moon, Plus, Sun, Users } from 'lucide-react'
+import ExportMenu from './components/ExportMenu'
+import { buildXlsxBlob } from './exportXlsx'
+import { Mail, Moon, Plus, Sun, Users } from 'lucide-react'
 import { formatWeekStart } from './format'
 import { INTERNAL_SCOPE } from './scope'
 import './App.css'
@@ -20,6 +23,17 @@ function upsertById(list, row) {
   const next = list.slice()
   next[idx] = { ...next[idx], ...row }
   return next
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 function todayAsWeekStart() {
@@ -122,6 +136,7 @@ export default function App() {
   const [clientId] = useState(() => new URLSearchParams(window.location.search).get('client'))
   const [clients, setClients] = useState([])
   const [clientsPanelOpen, setClientsPanelOpen] = useState(false)
+  const [reportsPanelOpen, setReportsPanelOpen] = useState(false)
   const [weeks, setWeeks] = useState([])
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -515,6 +530,29 @@ export default function App() {
     setClients((prev) => [...prev, data])
   }, [])
 
+  const updateClientEmail = useCallback(
+    async (clientIdToUpdate, email) => {
+      const previous = clients.find((c) => c.id === clientIdToUpdate)?.email ?? null
+      const next = email || null
+      if (next && !/^\S+@\S+\.\S+$/.test(next)) {
+        setGlobalNotice({ type: 'error', text: `"${email}" doesn't look like an email address.` })
+        return
+      }
+      setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, email: next } : c)))
+      const { error } = await supabase.from('clients').update({ email: next }).eq('id', clientIdToUpdate)
+      if (error) {
+        setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, email: previous } : c)))
+        setGlobalNotice({
+          type: 'error',
+          text: /email/i.test(error.message)
+            ? "Couldn't save the email — the database hasn't been updated for weekly reports yet (see README → Weekly reports)."
+            : `Couldn't save the email: ${error.message}`,
+        })
+      }
+    },
+    [clients]
+  )
+
   const deleteClient = useCallback(
     async (clientIdToDelete) => {
       const backupClient = clients.find((c) => c.id === clientIdToDelete)
@@ -659,6 +697,7 @@ export default function App() {
     for (const week of visibleWeeks) {
       for (const task of tasksByWeek.get(week.id) || []) {
         rows.push({
+          client: week.client_id ? clients.find((c) => c.id === week.client_id)?.name || 'Client' : 'Internal',
           weekStart: week.week_start,
           weekLabel: week.label,
           project: task.project,
@@ -670,22 +709,25 @@ export default function App() {
       }
     }
     return rows
-  }, [visibleWeeks, tasksByWeek])
+  }, [visibleWeeks, tasksByWeek, clients])
 
   const filteredExportRows = useMemo(
     () => exportRows.filter((r) => !exportMonth || r.weekStart.slice(0, 7) === exportMonth),
     [exportRows, exportMonth]
   )
 
+  const exportFileBase = `weekly-task-tracker-${exportMonth || new Date().toISOString().slice(0, 10)}`
+
   const exportCsv = useCallback(() => {
     const escapeCsv = (value) => {
       const str = String(value ?? '')
       return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str
     }
-    const header = ['Week Start', 'Week Label', 'Project', 'Status', 'Hours', 'Notes', 'Done']
+    const header = ['Client', 'Week Start', 'Week Label', 'Project', 'Status', 'Hours', 'Notes', 'Done']
     const lines = [
       header,
       ...filteredExportRows.map((r) => [
+        r.client,
         r.weekStart,
         r.weekLabel,
         r.project,
@@ -696,16 +738,16 @@ export default function App() {
       ]),
     ]
     const csv = lines.map((line) => line.map(escapeCsv).join(',')).join('\r\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `weekly-task-tracker-${exportMonth || new Date().toISOString().slice(0, 10)}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }, [filteredExportRows, exportMonth])
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${exportFileBase}.csv`)
+  }, [filteredExportRows, exportFileBase])
+
+  const exportXlsx = useCallback(async () => {
+    try {
+      downloadBlob(await buildXlsxBlob(filteredExportRows), `${exportFileBase}.xlsx`)
+    } catch (err) {
+      setGlobalNotice({ type: 'error', text: `Couldn't create the Excel file: ${err.message}` })
+    }
+  }, [filteredExportRows, exportFileBase])
 
   const switchScope = (scope) => {
     setViewScope(scope)
@@ -751,24 +793,28 @@ export default function App() {
               <ViewSwitcher clients={clients} value={viewScope} onChange={switchScope} />
             )}
             {!clientId && (
-              <button className="export-btn" onClick={() => setClientsPanelOpen((v) => !v)}>
-                <Users size={18} aria-hidden="true" /> Clients
+              <button className="export-btn" title="Clients" onClick={() => setClientsPanelOpen((v) => !v)}>
+                <Users size={18} aria-hidden="true" /> <span className="btn-label">Clients</span>
+              </button>
+            )}
+            {!clientId && (
+              <button className="export-btn" title="Weekly report" onClick={() => setReportsPanelOpen((v) => !v)}>
+                <Mail size={18} aria-hidden="true" /> <span className="btn-label">Reports</span>
               </button>
             )}
             <input
               type="month"
               className="month-picker"
               aria-label="Filter export by month"
+              title="Limit the export to one month"
               value={exportMonth}
               onChange={(e) => setExportMonth(e.target.value)}
             />
-            <button
-              className="export-btn"
-              onClick={exportCsv}
+            <ExportMenu
               disabled={filteredExportRows.length === 0}
-            >
-              <Download size={18} aria-hidden="true" /> Export CSV
-            </button>
+              onExportXlsx={exportXlsx}
+              onExportCsv={exportCsv}
+            />
             <button
               className="theme-toggle"
               onClick={toggleTheme}
@@ -806,11 +852,19 @@ export default function App() {
               clientStats={clientStats}
               onAddClient={addClient}
               onDeleteClient={deleteClient}
+              onUpdateClientEmail={updateClientEmail}
               onViewClient={(id) => {
                 switchScope(id)
                 setClientsPanelOpen(false)
               }}
               onClose={() => setClientsPanelOpen(false)}
+            />
+          )}
+
+          {reportsPanelOpen && !clientId && (
+            <ReportsPanel
+              weekStart={selectedWeek?.week_start || currentWeekStart}
+              onClose={() => setReportsPanelOpen(false)}
             />
           )}
 

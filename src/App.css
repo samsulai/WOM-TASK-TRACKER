@@ -41,6 +41,10 @@
   align-items: center;
   gap: 14px;
   min-width: 0;
+  flex: 0 1 auto;
+}
+.topbar-brand > div {
+  min-width: 0;
 }
 .brand-logo {
   flex: none;
@@ -59,6 +63,8 @@
   font-size: 0.72rem;
 }
 .brand-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: block;
   font-weight: 600;
   font-size: 1.05rem;
@@ -70,6 +76,23 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: none;
+}
+
+/* Medium screens: the bar holds a lot of controls, so the text labels on the
+   action buttons give way to their icons (each still has a tooltip). Phones
+   get the stacked layout below and keep the full labels. */
+@media (min-width: 861px) and (max-width: 1240px) {
+  .btn-label,
+  .view-switcher-label {
+    display: none;
+  }
+  .export-btn {
+    padding: 0 12px;
+  }
+  .view-switcher {
+    padding-left: 12px;
+  }
 }
 
 /* "Viewing" switcher: a tonal pill so it reads as the primary control in
@@ -1283,24 +1306,11 @@
   filter: brightness(0.94);
 }
 
-/* ------------------------------------------------------------- mobile */
-@media (max-width: 640px) {
-  .app-body {
-    min-height: 0;
-  }
-  .app-content {
-    padding: 20px 16px 48px;
-  }
-  .totals-card,
-  .week-card,
-  .week-empty-prompt,
-  .week-nav-panel {
-    padding: 16px;
-  }
 
-  /* Top bar: stack brand above actions instead of squeezing both into
-     one row (the action cluster alone can exceed a phone's width). The
-     fixed desktop height only fits a single row, so let it grow here. */
+/* Top bar: stack brand above actions instead of squeezing both into one row
+   (the action cluster alone can exceed the width). The fixed desktop height
+   only fits a single row, so let it grow here. */
+@media (max-width: 860px) {
   .topbar {
     height: auto;
   }
@@ -1324,6 +1334,22 @@
   .month-picker {
     flex: 1 1 auto;
     min-width: 0;
+  }
+}
+
+/* ------------------------------------------------------------- mobile */
+@media (max-width: 640px) {
+  .app-body {
+    min-height: 0;
+  }
+  .app-content {
+    padding: 20px 16px 48px;
+  }
+  .totals-card,
+  .week-card,
+  .week-empty-prompt,
+  .week-nav-panel {
+    padding: 16px;
   }
 
   /* Week header: let the date/label column and the hours stat each take
@@ -1403,4 +1429,281 @@
     justify-content: flex-start;
     width: 100%;
   }
+}
+
+/* ------------------------------------------------------------ export menu */
+.export-menu {
+  position: relative;
+}
+.export-menu-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  margin-top: 6px;
+  min-width: 190px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--elev-3);
+  padding: 6px 0;
+  animation: fade-in 0.12s ease both;
+}
+
+/* ------------------------------------------------- clients: email + report */
+.clients-list li {
+  flex-wrap: wrap;
+}
+.clients-list-email {
+  flex: 1 1 100%;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 5px 8px;
+  margin: 0 -8px;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.clients-list-email:hover {
+  border-color: var(--border);
+}
+.clients-list-email:focus-visible {
+  outline-offset: 0;
+  border-color: var(--accent-blue);
+  background: var(--card-bg);
+  color: var(--text-primary);
+}
+
+.report-section {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.report-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.report-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.report-field span {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.report-field input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+.report-preview {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.report-preview li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.85rem;
+}
+.report-preview li:last-child {
+  border-bottom: none;
+}
+.report-preview-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.report-preview-meta {
+  color: var(--text-secondary);
+}
+.report-badge {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.report-badge-ready {
+  color: var(--accent-blue-text);
+  background: var(--accent-blue-dim);
+}
+.report-badge-sent {
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
+}
+.report-badge-missing {
+  color: var(--accent-red);
+  background: var(--accent-red-dim);
+}
+.report-message {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border-radius: var(--r-md);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.report-message-ok {
+  color: var(--accent-blue-text);
+  background: var(--accent-blue-dim);
+}
+.report-message-error {
+  color: var(--accent-red);
+  background: var(--accent-red-dim);
+}
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.report-actions .add-task-btn-primary {
+  margin-left: auto;
+}
+.report-actions .add-task-btn-primary:disabled,
+.report-actions .export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.report-test-client {
+  height: 38px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0 8px;
+  max-width: 100%;
+}
+@media (max-width: 640px) {
+  .report-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Masked like a password, without being one (keeps browsers from offering to
+   save it as a login). */
+.secret-input {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+.report-key-saved {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 38px;
+  font-size: 0.85rem;
+  color: var(--accent-green);
+}
+.report-link-btn {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-blue-text);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.report-link-btn:hover {
+  color: var(--text-primary);
+}
+
+/* ------------------------------------------------------ reports window */
+.report-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.report-key-field {
+  display: block;
+  margin-bottom: 14px;
+}
+.report-key-field input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.report-loading,
+.report-hint {
+  margin: 0 0 12px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+.report-main-action {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.report-main-action .add-task-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.report-footer {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.report-test-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.report-test-row input[type='email'] {
+  flex: 1 1 180px;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+.report-link-btn:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  text-decoration: none;
 }
