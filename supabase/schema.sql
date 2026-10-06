@@ -26,6 +26,14 @@ create table if not exists clients (
 -- simply skipped when reports are sent.
 alter table clients add column if not exists email text;
 
+-- Optional monthly hours allowance ("time bought"), compared against hours
+-- actually logged ("time used") in the app's budget card and weekly report
+-- email. Null = budget tracking is off for this client; nothing is shown.
+alter table clients add column if not exists monthly_hours numeric(6,2);
+alter table clients drop constraint if exists clients_monthly_hours_check;
+alter table clients add constraint clients_monthly_hours_check
+  check (monthly_hours is null or (monthly_hours >= 0 and monthly_hours <= 1000));
+
 create table if not exists weeks (
   id          uuid primary key default gen_random_uuid(),
   week_start  date not null,

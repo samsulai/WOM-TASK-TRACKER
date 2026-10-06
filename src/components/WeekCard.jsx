@@ -1,7 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
 import { ArrowRightLeft, Check, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import Tooltip from './Tooltip'
 import TaskRow from './TaskRow'
 import { formatHours } from '../format'
+import { useFlashOnChange } from '../hooks/useFlashOnChange'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
 
 export default function WeekCard({
   week,
@@ -24,105 +30,106 @@ export default function WeekCard({
   const weekHours = tasks.reduce((sum, t) => sum + Number(t.hours || 0), 0)
   const doneCount = tasks.filter((t) => t.done).length
   const weekError = fieldErrors.get(`week:${week.id}`)
+  const bumpHours = useFlashOnChange(weekHours)
 
   return (
-    <section className="week-card">
-      <div className="week-toolbar">
-        <div className="week-stepper">
-          <button
-            type="button"
-            className="stepper-btn"
+    <Card className="week-card">
+      <div className="mb-5 flex items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-md"
             aria-label="Previous week"
             title="Previous week"
             disabled={!onPrevWeek}
             onClick={onPrevWeek}
           >
             <ChevronLeft size={20} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="stepper-btn"
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-md"
             aria-label="Next week"
             title="Next week"
             disabled={!onNextWeek}
             onClick={onNextWeek}
           >
             <ChevronRight size={20} aria-hidden="true" />
-          </button>
-          <button type="button" className="today-btn" disabled={!onToday} onClick={onToday}>
+          </Button>
+          <Button variant="outline" className="h-9 rounded-md" disabled={!onToday} onClick={onToday}>
             Today
-          </button>
+          </Button>
         </div>
         {!readOnly && (
-          <button className="add-task-btn add-task-btn-primary" onClick={() => onAddTask(week.id)}>
+          <Button onClick={() => onAddTask(week.id)}>
             <Plus size={18} aria-hidden="true" /> Add task
-          </button>
+          </Button>
         )}
       </div>
-      <div className="week-card-header">
-        <div className="week-heading">
-          <p className="eyebrow">Week of</p>
+
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 max-sm:w-full max-sm:flex-none">
+          <p className="eyebrow mb-0.5 text-xs font-medium text-muted-foreground">Week of</p>
           <input
-            className="week-date-input"
             type="date"
             value={week.week_start}
             disabled={readOnly}
             onChange={(e) => onUpdateWeekField(week.id, { week_start: e.target.value })}
+            className="-ml-1.5 block rounded-md border-none bg-transparent px-1.5 py-0.5 text-2xl font-medium text-foreground outline-none transition-colors hover:not-disabled:bg-accent focus-visible:not-disabled:bg-accent disabled:opacity-100"
           />
           <input
-            className="week-label-input"
             type="text"
             placeholder="Add a label…"
             value={week.label}
             disabled={readOnly}
             onChange={(e) => onUpdateWeekField(week.id, { label: e.target.value })}
+            className="mt-1 block w-60 max-w-full border-0 border-b border-border bg-transparent py-1 text-sm text-muted-foreground outline-none transition-colors placeholder:text-muted-foreground/70 hover:not-disabled:border-muted-foreground focus-visible:not-disabled:border-muted-foreground disabled:opacity-100"
           />
-          {clients && (
-            <WeekOwner week={week} clients={clients} onMove={(clientId) => onMoveWeek(week.id, clientId)} />
-          )}
-          {weekError && <p className="week-error">{weekError}</p>}
+          {clients && <WeekOwner week={week} clients={clients} onMove={(clientId) => onMoveWeek(week.id, clientId)} />}
+          {weekError && <p className="mt-2 text-sm text-destructive">{weekError}</p>}
         </div>
-        <div className="week-card-stat">
-          <span className="stat-value">{formatHours(weekHours)}</span>
-          <span className="stat-caption">logged</span>
+        <div className="flex-none text-right max-sm:order-1 max-sm:text-left">
+          <span
+            className={cn(
+              'inline-block text-2xl font-medium text-primary transition-transform duration-200 ease-out',
+              bumpHours && 'scale-110'
+            )}
+          >
+            {formatHours(weekHours)}
+          </span>
+          <span className="block text-xs font-medium text-muted-foreground">logged</span>
           {tasks.length > 0 && (
-            <div className="week-progress">
-              <span className="week-progress-track">
-                <span
-                  className="week-progress-fill"
-                  style={{ width: `${(doneCount / tasks.length) * 100}%` }}
-                />
-              </span>
-              <span className="week-progress-label">
+            <div className="mt-1.5 flex items-center justify-end gap-2">
+              <Progress value={(doneCount / tasks.length) * 100} className="h-1 w-12" />
+              <span className="text-xs font-medium text-muted-foreground">
                 {doneCount}/{tasks.length}
               </span>
             </div>
           )}
         </div>
         {!readOnly && (
-          <button
-            className="icon-btn icon-btn-danger"
-            aria-label="Delete week"
-            title="Delete week"
-            onClick={() => onDeleteWeek(week.id)}
-          >
+          <Button variant="destructive" onClick={() => onDeleteWeek(week.id)}>
             <Trash2 size={16} aria-hidden="true" /> Delete week
-          </button>
+          </Button>
         )}
       </div>
 
-      <table className="task-table">
-        <thead>
+      {/* Below sm: collapses to stacked cards (each td shows its data-label
+          as a caption) instead of a cramped, horizontally-scrolling table. */}
+      <table className="task-table w-full border-collapse text-sm max-sm:block">
+        <thead className="max-sm:hidden">
           <tr>
-            <th>Project</th>
-            <th>Notes</th>
-            <th>Status</th>
-            <th className="th-hours">Hours</th>
-            <th>Done</th>
+            <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Project</th>
+            <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Notes</th>
+            <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+            <th className="p-2 pb-2.5 pr-3.5 text-right text-xs font-medium text-muted-foreground">Hours</th>
+            <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Done</th>
             <th></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="max-sm:block">
           {tasks.map((task) => (
             <TaskRow
               key={task.id}
@@ -137,7 +144,7 @@ export default function WeekCard({
           ))}
           {tasks.length === 0 && (
             <tr>
-              <td colSpan={6} className="empty-row">
+              <td colSpan={6} className="p-4 italic text-muted-foreground">
                 No tasks logged this week yet.
               </td>
             </tr>
@@ -146,11 +153,11 @@ export default function WeekCard({
       </table>
 
       {!readOnly && (
-        <button className="add-task-btn" onClick={() => onAddTask(week.id)}>
+        <Button variant="secondary" className="mx-auto mt-4 flex" onClick={() => onAddTask(week.id)}>
           <Plus size={18} aria-hidden="true" /> Add task
-        </button>
+        </Button>
       )}
-    </section>
+    </Card>
   )
 }
 
@@ -158,62 +165,49 @@ export default function WeekCard({
 // Deliberately NOT a plain dropdown: an always-visible select looked like a
 // "switch client" control, but it edits data.
 function WeekOwner({ week, clients, onMove }) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e) => {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false)
-    }
-    const onKey = (e) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
   const ownerName = week.client_id ? clients.find((c) => c.id === week.client_id)?.name || 'Client' : 'Internal'
   const options = [{ id: null, name: 'Internal (no client)' }, ...clients]
 
   return (
-    <div className="week-owner" ref={rootRef}>
-      <span className="week-owner-label">Belongs to</span>
-      <span className={`week-owner-chip${week.client_id ? ' week-owner-chip-client' : ''}`}>{ownerName}</span>
-      <button
-        type="button"
-        className="week-owner-move"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+    <div className="mt-3.5 flex flex-wrap items-center gap-2">
+      <span className="text-sm text-muted-foreground">Belongs to</span>
+      <span
+        className={cn(
+          'rounded-md bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground',
+          week.client_id && 'bg-primary/10 text-primary'
+        )}
       >
-        <ArrowRightLeft size={14} aria-hidden="true" /> Move…
-      </button>
-      {open && (
-        <div className="week-owner-menu" role="menu">
-          <p className="week-owner-menu-title">Move this whole week to:</p>
+        {ownerName}
+      </span>
+      <DropdownMenu>
+        <Tooltip text="Reassigns this whole week to a different client (or Internal). Doesn't move or change any tasks.">
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+            >
+              <ArrowRightLeft size={14} aria-hidden="true" /> Move…
+            </button>
+          </DropdownMenuTrigger>
+        </Tooltip>
+        <DropdownMenuContent align="start" className="min-w-[230px]">
+          <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Move this whole week to:</p>
           {options.map((o) => {
             const current = (week.client_id || null) === o.id
             return (
-              <button
+              <DropdownMenuItem
                 key={o.id || 'internal'}
-                type="button"
-                role="menuitem"
-                className={`week-owner-option${current ? ' week-owner-option-current' : ''}`}
                 disabled={current}
-                onClick={() => {
-                  setOpen(false)
-                  onMove(o.id)
-                }}
+                onSelect={() => onMove(o.id)}
+                className={cn('gap-2', current && 'text-muted-foreground')}
               >
-                <span className="week-owner-check" aria-hidden="true">{current && <Check size={16} />}</span> {o.name}
-              </button>
+                <span className="flex w-4 flex-none text-primary">{current && <Check size={16} />}</span>
+                {o.name}
+              </DropdownMenuItem>
             )
           })}
-        </div>
-      )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 }

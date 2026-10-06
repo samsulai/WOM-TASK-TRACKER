@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Check, Mail, Send, X } from 'lucide-react'
+import { Check, Loader2, Mail, Send } from 'lucide-react'
 import { callReport } from '../reportApi'
 import { formatHours, formatWeekStart } from '../format'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 const KEY_STORAGE = 'wtt-report-key'
 const TEST_STORAGE = 'wtt-report-test-to'
@@ -83,12 +90,6 @@ export default function ReportsPanel({ weekStart, onClose }) {
     }
   }, [weekStart])
 
-  useEffect(() => {
-    const handleKey = (e) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [onClose])
-
   const ready = (preview || []).filter((c) => c.email && !c.alreadySent)
   const missingEmail = (preview || []).filter((c) => !c.email && !c.alreadySent)
 
@@ -127,35 +128,26 @@ export default function ReportsPanel({ weekStart, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="clients-panel reports-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Weekly report"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="clients-panel-header">
-          <p className="eyebrow report-heading">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent aria-label="Weekly report" className="max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
             <Mail size={22} aria-hidden="true" /> Weekly report
-          </p>
-          <button className="icon-btn icon-btn-ghost" onClick={onClose} aria-label="Close weekly report">
-            <X size={20} aria-hidden="true" />
-          </button>
-        </div>
-        <p className="clients-panel-hint">
-          Emails each client who had tasks logged for the week of <strong>{formatWeekStart(weekStart)}</strong> a summary
-          with an Excel attachment. To pick a different week, close this and select it in the Weeks list.
-        </p>
+          </DialogTitle>
+          <DialogDescription>
+            Emails each client who had tasks logged for the week of <strong className="text-foreground">{formatWeekStart(weekStart)}</strong>{' '}
+            a summary with an Excel attachment. To pick a different week, close this and select it in the Weeks list.
+          </DialogDescription>
+        </DialogHeader>
 
         {editingKey && (
-          <label className="report-field report-key-field">
-            <span>Report key</span>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="report-key">Report key</Label>
             {/* type=text + CSS masking (not type=password) so Chrome and
                 password managers don't offer to save it as a login. */}
-            <input
+            <Input
+              id="report-key"
               type="text"
-              className="secret-input"
               autoComplete="off"
               spellCheck={false}
               data-1p-ignore
@@ -163,6 +155,7 @@ export default function ReportsPanel({ weekStart, onClose }) {
               autoFocus
               value={adminKey}
               placeholder="The REPORT_ADMIN_KEY you set"
+              style={{ WebkitTextSecurity: 'disc' }}
               onChange={(e) => {
                 setAdminKey(e.target.value)
                 writeStored(KEY_STORAGE, e.target.value)
@@ -173,90 +166,90 @@ export default function ReportsPanel({ weekStart, onClose }) {
                 run(() => loadPreview(adminKey))
               }}
             />
-          </label>
+          </div>
         )}
 
-        {busy && !preview && <p className="report-loading">Checking who gets a report…</p>}
+        {busy && !preview && <p className="text-sm text-muted-foreground">Checking who gets a report…</p>}
 
         {preview && preview.length > 0 && (
-          <ul className="report-preview">
+          <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
             {preview.map((c) => (
-              <li key={c.clientId}>
-                <span className="report-preview-name">{c.name}</span>
-                <span className="report-preview-meta">
+              <li key={c.clientId} className="flex flex-wrap items-center gap-2.5 px-3 py-2.5 text-sm">
+                <span className="font-semibold text-foreground">{c.name}</span>
+                <span className="text-muted-foreground">
                   {formatHours(c.hours)} · {c.tasks} task{c.tasks === 1 ? '' : 's'}
                 </span>
-                <span
-                  className={`report-badge ${
-                    c.alreadySent ? 'report-badge-sent' : c.email ? 'report-badge-ready' : 'report-badge-missing'
-                  }`}
+                <Badge
+                  variant={c.alreadySent ? 'success' : c.email ? 'default' : 'destructive'}
+                  className="ml-auto max-w-full truncate"
                 >
                   {c.alreadySent ? 'Already sent' : c.email ? c.email : 'No email yet'}
-                </span>
+                </Badge>
               </li>
             ))}
           </ul>
         )}
 
-        {hint && <p className="report-hint">{hint}</p>}
-        {message && <p className={`report-message report-message-${message.type}`}>{message.text}</p>}
+        {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
+        {message && (
+          <p className={cn('rounded-md px-3 py-2 text-sm', message.type === 'ok' ? 'bg-primary/10 text-primary' : 'bg-destructive/15 text-destructive')}>
+            {message.text}
+          </p>
+        )}
 
-        <div className="report-main-action">
-          <button
-            type="button"
-            className="add-task-btn add-task-btn-primary"
-            disabled={busy || ready.length === 0}
-            onClick={() => run(sendAll)}
-          >
-            <Send size={16} aria-hidden="true" /> Send to {ready.length} client{ready.length === 1 ? '' : 's'}
-          </button>
+        <div className="flex justify-end">
+          <Button disabled={busy || ready.length === 0} onClick={() => run(sendAll)}>
+            {busy && preview ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
+            Send to {ready.length} client{ready.length === 1 ? '' : 's'}
+          </Button>
         </div>
 
-        <div className="report-footer">
-          <div className="report-test-row">
+        <div className="flex flex-col gap-2.5 border-t border-border pt-3.5 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Send a test to</span>
-            <input
+            <Input
               type="email"
               value={testTo}
               placeholder="you@yourcompany.com"
               aria-label="Email address for the test report"
+              className="h-8 flex-1 basis-[180px] text-sm"
               onChange={(e) => {
                 setTestTo(e.target.value)
                 writeStored(TEST_STORAGE, e.target.value)
               }}
             />
             {preview && preview.length > 1 && (
-              <select
-                className="report-test-client"
-                value={testClientId}
-                onChange={(e) => setTestClientId(e.target.value)}
-                aria-label="Client whose data the test email uses"
-              >
-                {preview.map((c) => (
-                  <option key={c.clientId} value={c.clientId}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={testClientId} onValueChange={setTestClientId}>
+                <SelectTrigger size="sm" aria-label="Client whose data the test email uses">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {preview.map((c) => (
+                    <SelectItem key={c.clientId} value={c.clientId}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-            <button
-              type="button"
-              className="report-link-btn"
+            <Button
+              variant="link"
+              className="h-auto p-0 text-primary"
               disabled={busy || !preview || preview.length === 0}
               onClick={() => run(sendTest)}
             >
               Send test
-            </button>
+            </Button>
           </div>
           {!editingKey && (
-            <div className="report-key-saved">
+            <div className="flex flex-wrap items-center gap-2 text-success">
               <Check size={16} aria-hidden="true" /> Report key saved on this device
-              <button type="button" className="report-link-btn" onClick={() => setEditingKey(true)}>
+              <Button variant="link" className="h-auto p-0 text-primary" onClick={() => setEditingKey(true)}>
                 Change
-              </button>
-              <button
-                type="button"
-                className="report-link-btn"
+              </Button>
+              <Button
+                variant="link"
+                className="h-auto p-0 text-primary"
                 onClick={() => {
                   setAdminKey('')
                   writeStored(KEY_STORAGE, '')
@@ -265,11 +258,11 @@ export default function ReportsPanel({ weekStart, onClose }) {
                 }}
               >
                 Forget
-              </button>
+              </Button>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

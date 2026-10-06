@@ -1,9 +1,20 @@
 import { Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 const STATUS_OPTIONS = ['Not Started', 'In Progress', 'Blocked', 'Done']
 
-function statusSlug(status) {
-  return status.toLowerCase().replace(/\s+/g, '-')
+// Tonal pill colors per status -- kept as explicit classes (not derived from
+// the shared brand palette) because Blocked/Done need to stay red/green
+// regardless of the one-accent-color rule everywhere else in the app.
+const STATUS_STYLES = {
+  'Not Started': 'bg-muted text-muted-foreground',
+  'In Progress': 'bg-primary/10 text-primary',
+  Blocked: 'bg-destructive/15 text-destructive',
+  Done: 'bg-success/15 text-success',
 }
 
 export default function TaskRow({ task, saving, error, onFieldChange, onFlush, onDelete, readOnly }) {
@@ -21,50 +32,60 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
   const handleDoneChange = (done) =>
     handleImmediate({ done, status: done ? 'Done' : task.status === 'Done' ? 'In Progress' : task.status })
 
-  const rowClass = ['task-row', task.done && 'task-row-done', error && 'task-row-error']
-    .filter(Boolean)
-    .join(' ')
-
   return (
-    <tr className={rowClass}>
-      <td data-label="Project">
-        <input
-          type="text"
+    <tr
+      className={cn(
+        'border-b border-border/60 last:border-0',
+        'max-sm:mb-2.5 max-sm:block max-sm:rounded-lg max-sm:border max-sm:border-border max-sm:p-2.5 max-sm:last:mb-0',
+        error && 'bg-destructive/5'
+      )}
+    >
+      <td className="p-2 max-sm:flex max-sm:items-center max-sm:gap-2.5 max-sm:before:w-16 max-sm:before:flex-none max-sm:before:text-xs max-sm:before:font-medium max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]" data-label="Project">
+        <Input
           value={task.project}
           placeholder="Project"
           disabled={readOnly}
           onChange={handleText('project')}
           onBlur={() => onFlush(task.id)}
+          className={cn(
+            'border-transparent bg-transparent font-semibold',
+            task.done && 'text-muted-foreground line-through'
+          )}
         />
       </td>
-      <td data-label="Notes">
-        <input
-          className="notes-input"
-          type="text"
+      <td className="p-2 max-sm:flex max-sm:items-center max-sm:gap-2.5 max-sm:before:w-16 max-sm:before:flex-none max-sm:before:text-xs max-sm:before:font-medium max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]" data-label="Notes">
+        <Input
           value={task.notes}
           placeholder="Notes"
           disabled={readOnly}
           onChange={handleText('notes')}
           onBlur={() => onFlush(task.id)}
+          className={cn('border-transparent bg-transparent text-muted-foreground', task.done && 'line-through')}
         />
       </td>
-      <td data-label="Status">
-        <select
-          className={`status-select status-${statusSlug(task.status)}`}
-          value={task.status}
-          disabled={readOnly}
-          onChange={(e) => handleStatusChange(e.target.value)}
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+      <td className="p-2 max-sm:flex max-sm:items-center max-sm:gap-2.5 max-sm:before:w-16 max-sm:before:flex-none max-sm:before:text-xs max-sm:before:font-medium max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]" data-label="Status">
+        <Select value={task.status} disabled={readOnly} onValueChange={handleStatusChange}>
+          <SelectTrigger
+            className={cn(
+              'w-fit justify-start gap-1.5 rounded-full border-none font-semibold duration-200',
+              STATUS_STYLES[task.status],
+              readOnly && 'disabled:opacity-100'
+            )}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </td>
-      <td data-label="Hours">
-        <div className="hours-field">
-          <input
+      <td className="p-2 max-sm:flex max-sm:items-center max-sm:gap-2.5 max-sm:before:w-16 max-sm:before:flex-none max-sm:before:text-xs max-sm:before:font-medium max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]" data-label="Hours">
+        <div className="relative ml-auto w-[116px] max-sm:ml-0 max-sm:w-auto max-sm:flex-1">
+          <Input
             type="number"
             min="0"
             max="168"
@@ -73,39 +94,41 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
             disabled={readOnly}
             onChange={handleHours}
             onBlur={() => onFlush(task.id)}
+            className="border-transparent bg-transparent pr-9 text-right text-[1.05rem] font-semibold max-sm:text-left"
           />
-          <span className="hours-suffix">hrs</span>
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            hrs
+          </span>
         </div>
       </td>
-      <td className="task-done-cell" data-label="Done">
-        <label className="check-control">
-          <input
-            type="checkbox"
-            checked={task.done}
-            disabled={readOnly}
-            onChange={(e) => handleDoneChange(e.target.checked)}
-          />
-          <span className="check-box" aria-hidden="true" />
-        </label>
+      <td className="p-2 text-center max-sm:text-left max-sm:flex max-sm:items-center max-sm:gap-2.5 max-sm:before:w-16 max-sm:before:flex-none max-sm:before:text-xs max-sm:before:font-medium max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]" data-label="Done">
+        <Checkbox checked={task.done} disabled={readOnly} onCheckedChange={handleDoneChange} />
       </td>
-      <td data-label="">
-        <div className="row-end">
-          {saving && <span className="row-status">Saving…</span>}
+      <td className="p-2 max-sm:flex max-sm:before:hidden" data-label="">
+        <div className="flex items-center justify-end gap-2">
+          {saving && <span className="whitespace-nowrap text-xs text-muted-foreground">Saving…</span>}
           {error && (
-            <span className="row-status row-status-error">
+            <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-destructive">
               Failed to save
-              <button onClick={() => onFlush(task.id)}>Retry</button>
+              <button
+                className="rounded-full border border-current px-2 py-0.5 text-[0.68rem] font-semibold"
+                onClick={() => onFlush(task.id)}
+              >
+                Retry
+              </button>
             </span>
           )}
           {!readOnly && (
-            <button
-              className="icon-btn icon-btn-danger"
+            <Button
+              variant="destructive"
+              size="icon"
+              className="size-9"
               aria-label="Delete task"
               title="Delete task"
               onClick={() => onDelete(task.id)}
             >
               <Trash2 size={16} aria-hidden="true" />
-            </button>
+            </Button>
           )}
         </div>
       </td>

@@ -1,3 +1,46 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is([data-theme='dark'] *));
+
+/* Maps shadcn/ui's conventional semantic names onto the brand CSS variables
+   defined below -- so `bg-primary`, `text-muted-foreground`, etc. resolve to
+   the same real, already-tested brand colors (navy + #003dff, pulled from
+   wordoutmediaagency.com) and automatically follow the existing dark/light
+   `data-theme` switch, instead of introducing a second, parallel color
+   system. */
+@theme inline {
+  --font-sans: var(--font-body);
+
+  --color-background: var(--bg);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--card-bg);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--card-bg);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--accent-blue);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--panel-bg);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--panel-bg);
+  --color-muted-foreground: var(--text-secondary);
+  --color-accent: var(--panel-bg);
+  --color-accent-foreground: var(--text-primary);
+  --color-destructive: var(--accent-red);
+  --color-destructive-foreground: #ffffff;
+  --color-success: var(--accent-green);
+  --color-success-foreground: #ffffff;
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent-blue);
+  --color-sidebar: var(--pane-bg);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+}
+
 :root {
   color-scheme: dark;
   font: 18px/1.5 'Raleway', system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -13,15 +56,13 @@
   --r-pill: 999px;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --dur: 150ms;
-  --hover: rgba(241, 243, 255, 0.08);
-  --pressed: rgba(241, 243, 255, 0.14);
-  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
-  --elev-2: 0 2px 6px 2px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --elev-3: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
 
-  /* Brand palette: navy #14173a + blue #0169ff. Everything below is
-     derived from those two; green/red are kept only as status colors
-     (Done / Blocked & destructive actions). */
+  /* Brand palette: navy #14173a + blue #003dff, #002fc4 on hover -- pulled
+     directly from wordoutmediaagency.com's own theme colors (its accent
+     blue is #003dff, not the slightly brighter #0169ff this app used
+     before). Everything below is derived from navy + this blue; green/red
+     stay status-only colors (Done / Blocked & destructive actions), never
+     UI chrome. */
   --bg: #0d1030;
   --card-bg: #14173a;
   --panel-bg: #1c2050;
@@ -32,11 +73,11 @@
   --text-secondary: #a3a9d6;
   --text-tertiary: #7a81b5;
 
-  --accent-blue: #0169ff;
-  --accent-blue-text: #5b9dff;
-  --accent-blue-dim: rgba(1, 105, 255, 0.18);
-  --accent-blue-border: rgba(1, 105, 255, 0.45);
-  --accent-blue-strong: rgba(1, 105, 255, 0.3);
+  --accent-blue: #003dff;
+  --accent-blue-text: #5981ff;
+  --accent-blue-dim: rgba(0, 61, 255, 0.18);
+  --accent-blue-border: rgba(0, 61, 255, 0.45);
+  --accent-blue-strong: rgba(0, 61, 255, 0.3);
   --accent-green: #37d67a;
   --accent-green-dim: rgba(55, 214, 122, 0.15);
   --accent-green-border: rgba(55, 214, 122, 0.35);
@@ -44,12 +85,20 @@
   --accent-red-dim: rgba(255, 92, 114, 0.15);
   --accent-red-border: rgba(255, 92, 114, 0.45);
 
-  /* Ledger-bar / legend segments: tints of the brand blue and navy. */
-  --seg-1: #0169ff;
-  --seg-2: #8ab8ff;
-  --seg-3: #4b56b8;
-  --seg-4: #c9dcff;
-  --seg-5: #2f8bff;
+  /* Ledger-bar / legend segments: a monochrome blue ramp, light to dark. */
+  --seg-1: #003dff;
+  --seg-2: #5981ff;
+  --seg-3: #99b1ff;
+  --seg-4: #d1dcff;
+  --seg-5: #002fc4;
+
+  --glow: rgba(0, 61, 255, 0.14);
+
+  --hover: rgba(241, 243, 255, 0.08);
+  --pressed: rgba(241, 243, 255, 0.14);
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
+  --elev-2: 0 2px 6px 2px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elev-3: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
 
   background: var(--bg);
   color: var(--text-primary);
@@ -58,21 +107,24 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
+  /* Neutrals shift warm here (not cool blue-gray) to match the actual site
+     -- its panel/border/secondary-text colors (#F6F4F1, #DDDBD8, #7A7A74)
+     lean warm, not blue-tinted. text-primary stays navy either way. */
   --bg: #ffffff;
   --card-bg: #ffffff;
-  --panel-bg: #f3f5fb;
-  --pane-bg: #f8f9fd;
-  --border: #e1e4ef;
-  --border-soft: #eceef6;
+  --panel-bg: #f6f4f1;
+  --pane-bg: #f9f8f6;
+  --border: #dddbd8;
+  --border-soft: #ece9e6;
   --text-primary: #14173a;
-  --text-secondary: #4a507d;
-  --text-tertiary: #666d99;
+  --text-secondary: #62625d;
+  --text-tertiary: #8c8c86;
 
-  --accent-blue: #0169ff;
-  --accent-blue-text: #0169ff;
-  --accent-blue-dim: rgba(1, 105, 255, 0.1);
-  --accent-blue-border: rgba(1, 105, 255, 0.35);
-  --accent-blue-strong: rgba(1, 105, 255, 0.18);
+  --accent-blue: #003dff;
+  --accent-blue-text: #003dff;
+  --accent-blue-dim: rgba(0, 61, 255, 0.1);
+  --accent-blue-border: rgba(0, 61, 255, 0.35);
+  --accent-blue-strong: rgba(0, 61, 255, 0.18);
   --accent-green: #12a35a;
   --accent-green-dim: rgba(18, 163, 90, 0.12);
   --accent-green-border: rgba(18, 163, 90, 0.35);
@@ -80,11 +132,13 @@
   --accent-red-dim: rgba(217, 44, 70, 0.1);
   --accent-red-border: rgba(217, 44, 70, 0.4);
 
-  --seg-1: #0169ff;
-  --seg-2: #14173a;
-  --seg-3: #8ab8ff;
-  --seg-4: #4b56b8;
-  --seg-5: #c9dcff;
+  --seg-1: #003dff;
+  --seg-2: #5981ff;
+  --seg-3: #99b1ff;
+  --seg-4: #d1dcff;
+  --seg-5: #002fc4;
+
+  --glow: rgba(0, 61, 255, 0.07);
 
   --hover: rgba(20, 23, 58, 0.06);
   --pressed: rgba(20, 23, 58, 0.12);
@@ -100,7 +154,12 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
+  /* A faint brand-blue wash at the top of the page -- the one deliberate
+     flourish, kept subtle so it reads as depth rather than another color
+     competing with the UI. */
+  background:
+    radial-gradient(ellipse 900px 480px at 50% -12%, var(--glow), transparent 60%),
+    var(--bg);
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: lining-nums tabular-nums;
 }
@@ -108,6 +167,7 @@ body {
 h1,
 h2 {
   font-weight: 600;
+  letter-spacing: -0.01em;
   font-family: var(--font-body);
 }
 

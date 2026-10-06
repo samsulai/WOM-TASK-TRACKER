@@ -159,6 +159,38 @@ login yet, the URL is what grants access.
   (matched against each task's week start date); leave it blank to export
   everything. Both formats respect the current **Viewing** selection.
 
+## Client budgets ("time bought" vs. "time used")
+
+Optional, per client. Set a client's **monthly hours** (in **Clients**, next
+to their email) and the app tracks hours logged against it for the current
+calendar month — nothing changes for a client with no budget set.
+
+Needs one small, additive database change first: run
+[`supabase/migrations/2026-10-05-client-budget.sql`](supabase/migrations/2026-10-05-client-budget.sql)
+in the SQL Editor (it only adds a nullable `clients.monthly_hours` column).
+Until that's run, entering a value in **Clients** shows a clear error instead
+of silently failing.
+
+- **Budget card**: appears automatically whenever a single client is in
+  view — the admin **Viewing** switcher set to that client, or the client's
+  own read-only link — right under the stats bar. Shows hours used vs.
+  bought, a progress bar, and an "On track" / "Over budget" status. Step
+  between past months with the arrows (you can't step into the future).
+- **Setting and changing it**: admins can type a budget directly into the
+  card the first time (no budget set yet, so there's an inline "hrs / month"
+  field), and from then on the "20" in "used of 20 hrs bought" is itself
+  editable — click it, change it, click away — the same way the week date or
+  a task's hours are edited everywhere else in this app. **Clients** still
+  has the same field too, useful when setting several clients up in one
+  sitting. A client's own link shows nothing when no budget is set (they
+  can't edit it, so there's nothing useful to prompt them to do).
+- **In the weekly report email**: if the client has a budget, the email adds
+  a "Month to date" line — hours used across the *whole* calendar month
+  (every week in it, not just the one being reported), compared to the
+  budget.
+- This is purely informational — nothing here invoices, bills, or blocks
+  logging more hours once a budget is exceeded.
+
 ## Weekly reports (email to clients)
 
 Emails each client who had tasks logged in a week a summary (hours, done vs.

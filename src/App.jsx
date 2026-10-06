@@ -3,16 +3,20 @@ import { supabase } from './supabaseClient'
 import WeekCard from './components/WeekCard'
 import Totals from './components/Totals'
 import StatsBar from './components/StatsBar'
+import StatusBreakdown from './components/StatusBreakdown'
 import WeekNav from './components/WeekNav'
 import ClientsPanel from './components/ClientsPanel'
 import ReportsPanel from './components/ReportsPanel'
 import ViewSwitcher from './components/ViewSwitcher'
 import ExportMenu from './components/ExportMenu'
+import BudgetCard from './components/BudgetCard'
+import TrendChart from './components/TrendChart'
 import { buildXlsxBlob } from './exportXlsx'
-import { Mail, Moon, Plus, Sun, Users } from 'lucide-react'
-import { formatWeekStart } from './format'
+import { Loader2, Mail, Moon, Plus, Sun, Users } from 'lucide-react'
+import { formatHours, formatWeekStart } from './format'
 import { INTERNAL_SCOPE } from './scope'
-import './App.css'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 const SAVE_DEBOUNCE_MS = 600
 const RETRY_SAVE_DELAY_MS = 300
@@ -451,10 +455,13 @@ export default function App() {
     [flushWeekSave]
   )
 
-  // New weeks belong to whoever you're currently viewing: the client link's
-  // client, or the client picked in the admin "Viewing" switcher. Under
-  // "All" or "Internal only" they start out internal.
-  const newWeekClientId = clientId || (viewScope && viewScope !== INTERNAL_SCOPE ? viewScope : null)
+  // Whichever single client is currently in view: the client link's own
+  // client, or the client picked in the admin "Viewing" switcher. Null under
+  // "Everything" or "Internal only" -- there's no single client to scope to.
+  // New weeks default to this client, and it's also what the budget card
+  // (below) tracks "time bought vs. time used" against.
+  const scopedClientId = clientId || (viewScope && viewScope !== INTERNAL_SCOPE ? viewScope : null)
+  const newWeekClientId = scopedClientId
 
   // The DB's unique (client_id, week_start) index can't catch duplicates for
   // internal weeks (client_id is NULL, and NULLs never collide), so check
@@ -464,17 +471,21 @@ export default function App() {
       (w) => w.id !== exceptWeekId && (w.client_id || null) === ownerId && w.week_start === weekStart
     )
 
+  const [addingWeek, setAddingWeek] = useState(false)
+
   const addWeek = useCallback(async () => {
     const weekStart = todayAsWeekStart()
     if (ownerHasWeekStarting(newWeekClientId, weekStart)) {
       setGlobalNotice({ type: 'error', text: 'A week starting on that date already exists.' })
       return
     }
+    setAddingWeek(true)
     const { data, error } = await supabase
       .from('weeks')
       .insert({ week_start: weekStart, label: '', client_id: newWeekClientId })
       .select()
       .single()
+    setAddingWeek(false)
     if (error) {
       const text = error.code === '23505'
         ? 'A week starting on that date already exists.'
@@ -553,20 +564,55 @@ export default function App() {
     [clients]
   )
 
+  const updateClientBudget = useCallback(
+    async (clientIdToUpdate, rawValue) => {
+      const previous = clients.find((c) => c.id === clientIdToUpdate)?.monthly_hours ?? null
+      let next = null
+      if (rawValue !== '') {
+        const parsed = Number(rawValue)
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1000) {
+          setGlobalNotice({ type: 'error', text: 'Monthly hours must be a number between 0 and 1000 (or left blank).' })
+          return
+        }
+        next = parsed
+      }
+      setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, monthly_hours: next } : c)))
+      const { error } = await supabase.from('clients').update({ monthly_hours: next }).eq('id', clientIdToUpdate)
+      if (error) {
+        setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, monthly_hours: previous } : c)))
+        setGlobalNotice({
+          type: 'error',
+          text: /monthly_hours/i.test(error.message)
+            ? "Couldn't save the budget — the database hasn't been updated for client budgets yet (see README → Client budgets)."
+            : `Couldn't save the budget: ${error.message}`,
+        })
+      }
+    },
+    [clients]
+  )
+
   const deleteClient = useCallback(
     async (clientIdToDelete) => {
       const backupClient = clients.find((c) => c.id === clientIdToDelete)
       if (!backupClient) return
-      if (
-        !window.confirm(
-          `Delete "${backupClient.name}"? Their weeks and tasks will NOT be deleted -- they'll become internal (unassigned) instead.`
-        )
-      ) {
-        return
-      }
       const affectedWeekIds = weeksRef.current
         .filter((w) => w.client_id === clientIdToDelete)
         .map((w) => w.id)
+      // Spell out exactly what's at stake -- deleting a client never deletes
+      // their logged hours (weeks become Internal instead), but someone
+      // about to delete a client with months of real work on it should see
+      // that plainly rather than trust a generic warning.
+      const affectedWeekIdSet = new Set(affectedWeekIds)
+      const affectedHours = tasksRef.current
+        .filter((t) => affectedWeekIdSet.has(t.week_id))
+        .reduce((sum, t) => sum + Number(t.hours || 0), 0)
+      const impact =
+        affectedWeekIds.length === 0
+          ? 'They have no weeks logged.'
+          : `${affectedWeekIds.length} week${affectedWeekIds.length === 1 ? '' : 's'} (${formatHours(affectedHours)} logged) will move to Internal, not be deleted.`
+      if (!window.confirm(`Delete "${backupClient.name}"? ${impact}`)) {
+        return
+      }
 
       setClients((prev) => prev.filter((c) => c.id !== clientIdToDelete))
       setViewScope((prev) => (prev === clientIdToDelete ? null : prev))
@@ -633,7 +679,61 @@ export default function App() {
     [visibleWeeks]
   )
 
+  // Which calendar month the budget card is showing ("YYYY-MM"), independent
+  // of the selected week -- a client's budget is a monthly figure, so it gets
+  // its own stepper rather than following whichever week happens to be open.
+  const currentMonthKey = useMemo(() => new Date().toISOString().slice(0, 7), [])
+  const [budgetMonth, setBudgetMonth] = useState(currentMonthKey)
+  const shiftBudgetMonth = (delta) => {
+    setBudgetMonth((prev) => {
+      const [y, m] = prev.split('-').map(Number)
+      const d = new Date(y, m - 1 + delta, 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    })
+  }
+
+  const scopedClient = scopedClientId ? clients.find((c) => c.id === scopedClientId) : null
+
+  // Hours used by the scoped client in the budget month -- from the full
+  // weeks/tasks state (not visibleWeeks), since a client link already loads
+  // only that client's data, while the admin "Viewing" filter still needs
+  // scoping here explicitly to a single client + single month.
+  const budgetHoursUsed = useMemo(() => {
+    if (!scopedClientId) return 0
+    const monthWeekIds = new Set(
+      weeks.filter((w) => w.client_id === scopedClientId && w.week_start.slice(0, 7) === budgetMonth).map((w) => w.id)
+    )
+    if (monthWeekIds.size === 0) return 0
+    let sum = 0
+    for (const t of tasks) {
+      if (monthWeekIds.has(t.week_id)) sum += Number(t.hours || 0)
+    }
+    return sum
+  }, [weeks, tasks, scopedClientId, budgetMonth])
+
   const currentWeekStart = useMemo(() => todayAsWeekStart(), [])
+
+  // Hours logged per week, for the last 8 calendar weeks ending at the
+  // current one -- summed across every week sharing that date within the
+  // current Viewing scope (there can be more than one under "Everything",
+  // one per client), not just whichever weeks happen to have a row.
+  const trendData = useMemo(() => {
+    const hoursByWeekStart = new Map()
+    for (const w of visibleWeeks) {
+      hoursByWeekStart.set(w.week_start, (hoursByWeekStart.get(w.week_start) || 0) + (weekHoursById.get(w.id) || 0))
+    }
+    // Parsed and re-serialized as UTC throughout (not local midnight) so the
+    // arithmetic can't drift a day depending on the machine's timezone.
+    const [y, m, d] = currentWeekStart.split('-').map(Number)
+    const base = Date.UTC(y, m - 1, d)
+    const out = []
+    for (let i = 7; i >= 0; i--) {
+      const weekStart = new Date(base - i * 7 * 86400000).toISOString().slice(0, 10)
+      out.push({ weekStart, hours: hoursByWeekStart.get(weekStart) || 0 })
+    }
+    return out
+  }, [visibleWeeks, weekHoursById, currentWeekStart])
+
   const currentWeek = useMemo(
     () => sortedWeeks.find((w) => w.week_start === currentWeekStart),
     [sortedWeeks, currentWeekStart]
@@ -686,6 +786,14 @@ export default function App() {
     }),
     [visibleTasks]
   )
+
+  const statusCounts = useMemo(() => {
+    const counts = { 'Not Started': 0, 'In Progress': 0, Blocked: 0, Done: 0 }
+    for (const t of visibleTasks) {
+      if (counts[t.status] !== undefined) counts[t.status] += 1
+    }
+    return counts
+  }, [visibleTasks])
 
   const grandTotal = useMemo(
     () => visibleTasks.reduce((sum, t) => sum + Number(t.hours || 0), 0),
@@ -759,10 +867,10 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="app-shell">
-        <div className="loading-state">
-          <span className="spinner" aria-hidden="true" />
-          <p className="status-text">Loading…</p>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="size-9 animate-spin text-primary" aria-hidden="true" />
+          <p className="text-center text-lg">Loading…</p>
         </div>
       </div>
     )
@@ -770,64 +878,62 @@ export default function App() {
 
   if (loadError) {
     return (
-      <div className="app-shell">
-        <p className="status-text error-text">Failed to load: {loadError}</p>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <p className="text-center text-lg text-destructive">Failed to load: {loadError}</p>
       </div>
     )
   }
 
   return (
-    <div className="app-root">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <div className="topbar-brand">
-            <img className="brand-logo" src="/Logo-1.png" alt="WordOut" />
-            <span className="topbar-divider" aria-hidden="true" />
-            <div>
-              <p className="eyebrow">{clientId ? 'Hours log for' : 'Hours log'}</p>
-              <span className="brand-name">{clientName || 'Weekly Task Tracker'}</span>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-10 border-b border-border bg-card sm:h-16">
+        <div className="flex h-full items-center justify-between gap-4 px-4 py-3 max-sm:flex-col max-sm:items-stretch sm:px-6 sm:py-0">
+          <div className="flex min-w-0 flex-none items-center gap-3.5">
+            <img className="h-8 w-auto flex-none" src="/Logo-1.png" alt="WordOut" />
+            <span className="h-7 w-px flex-none bg-border" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">{clientId ? 'Hours log for' : 'Hours log'}</p>
+              <span className="block truncate text-base font-semibold text-foreground">
+                {clientName || 'Weekly Task Tracker'}
+              </span>
             </div>
           </div>
-          <div className="topbar-actions">
+          <div className="flex flex-none items-center gap-1.5 max-sm:flex-wrap">
+            {!clientId && <ViewSwitcher clients={clients} value={viewScope} onChange={switchScope} />}
             {!clientId && (
-              <ViewSwitcher clients={clients} value={viewScope} onChange={switchScope} />
+              <Button variant="ghost" title="Clients" onClick={() => setClientsPanelOpen((v) => !v)}>
+                <Users size={18} aria-hidden="true" /> <span className="hidden sm:inline">Clients</span>
+              </Button>
             )}
             {!clientId && (
-              <button className="export-btn" title="Clients" onClick={() => setClientsPanelOpen((v) => !v)}>
-                <Users size={18} aria-hidden="true" /> <span className="btn-label">Clients</span>
-              </button>
-            )}
-            {!clientId && (
-              <button className="export-btn" title="Weekly report" onClick={() => setReportsPanelOpen((v) => !v)}>
-                <Mail size={18} aria-hidden="true" /> <span className="btn-label">Reports</span>
-              </button>
+              <Button variant="ghost" title="Weekly report" onClick={() => setReportsPanelOpen((v) => !v)}>
+                <Mail size={18} aria-hidden="true" /> <span className="hidden sm:inline">Reports</span>
+              </Button>
             )}
             <input
               type="month"
-              className="month-picker"
               aria-label="Filter export by month"
               title="Limit the export to one month"
               value={exportMonth}
               onChange={(e) => setExportMonth(e.target.value)}
+              className="h-10 min-w-0 rounded-md border border-border bg-transparent px-2.5 text-sm text-muted-foreground outline-none transition-colors hover:border-muted-foreground max-sm:flex-1"
             />
-            <ExportMenu
-              disabled={filteredExportRows.length === 0}
-              onExportXlsx={exportXlsx}
-              onExportCsv={exportCsv}
-            />
-            <button
-              className="theme-toggle"
+            <ExportMenu disabled={filteredExportRows.length === 0} onExportXlsx={exportXlsx} onExportCsv={exportCsv} />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
               onClick={toggleTheme}
               aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
               title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
             >
               {theme === 'light' ? <Moon size={20} aria-hidden="true" /> : <Sun size={20} aria-hidden="true" />}
-            </button>
+            </Button>
           </div>
         </div>
       </header>
 
-      <div className="app-body">
+      <div className="flex items-stretch max-[860px]:flex-col">
         <WeekNav
           weeks={sortedWeeks}
           weekHoursById={weekHoursById}
@@ -838,11 +944,18 @@ export default function App() {
           scopeName={scopeName}
         />
 
-        <main className="app-content">
+        <main className="w-full min-w-0 flex-1 px-4 py-7 sm:px-8">
           {globalNotice && (
-            <div className={`banner banner-${globalNotice.type}`}>
+            <div
+              className={cn(
+                'mb-4 flex items-center justify-between rounded-md px-3.5 py-2.5 text-sm',
+                globalNotice.type === 'error' ? 'bg-destructive/15 text-destructive' : 'bg-primary/10 text-primary'
+              )}
+            >
               {globalNotice.text}
-              <button onClick={() => setGlobalNotice(null)}>Dismiss</button>
+              <Button variant="link" className="h-auto p-0 text-current" onClick={() => setGlobalNotice(null)}>
+                Dismiss
+              </Button>
             </div>
           )}
 
@@ -853,6 +966,7 @@ export default function App() {
               onAddClient={addClient}
               onDeleteClient={deleteClient}
               onUpdateClientEmail={updateClientEmail}
+              onUpdateClientBudget={updateClientBudget}
               onViewClient={(id) => {
                 switchScope(id)
                 setClientsPanelOpen(false)
@@ -875,7 +989,26 @@ export default function App() {
             hoursTotal={grandTotal}
           />
 
-          <Totals projectTotals={projectTotals} grandTotal={grandTotal} />
+          {scopedClient && (
+            <BudgetCard
+              clientName={scopedClient.name}
+              monthlyHours={scopedClient.monthly_hours}
+              hoursUsed={budgetHoursUsed}
+              monthKey={budgetMonth}
+              isCurrentMonth={budgetMonth === currentMonthKey}
+              onPrevMonth={() => shiftBudgetMonth(-1)}
+              onNextMonth={() => shiftBudgetMonth(1)}
+              onThisMonth={() => setBudgetMonth(currentMonthKey)}
+              onUpdateBudget={!readOnly ? (value) => updateClientBudget(scopedClientId, value) : null}
+            />
+          )}
+
+          <TrendChart data={trendData} currentWeekStart={currentWeekStart} />
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Totals projectTotals={projectTotals} grandTotal={grandTotal} />
+            <StatusBreakdown counts={statusCounts} total={visibleTasks.length} />
+          </div>
 
           {selectedWeek ? (
             <WeekCard
@@ -897,22 +1030,34 @@ export default function App() {
               readOnly={readOnly}
             />
           ) : (
-            <div className="week-empty-prompt">
-              <p className="eyebrow">Week of</p>
-              <h2>{formatWeekStart(currentWeekStart, { year: false })}</h2>
-              <p>{readOnly ? 'Nothing logged for this week yet.' : 'No tasks logged yet for this week.'}</p>
+            <div className="rounded-lg border border-border bg-card p-10 text-center">
+              <p className="text-xs font-medium text-muted-foreground">Week of</p>
+              <h2 className="my-1 text-xl font-medium">{formatWeekStart(currentWeekStart, { year: false })}</h2>
+              <p className="mb-4 text-muted-foreground">
+                {readOnly ? 'Nothing logged for this week yet.' : 'No tasks logged yet for this week.'}
+              </p>
               {!readOnly && (
-                <button className="add-week-btn" onClick={addWeek}>
-                  <Plus size={18} aria-hidden="true" /> {addWeekLabel}
-                </button>
+                <Button variant="outline" onClick={addWeek} disabled={addingWeek}>
+                  {addingWeek ? (
+                    <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Plus size={18} aria-hidden="true" />
+                  )}
+                  {addWeekLabel}
+                </Button>
               )}
             </div>
           )}
 
           {selectedWeek && !readOnly && (
-            <button className="add-week-btn" onClick={addWeek}>
-              <Plus size={18} aria-hidden="true" /> {addWeekLabel}
-            </button>
+            <Button variant="outline" className="mx-auto mt-5 flex" onClick={addWeek} disabled={addingWeek}>
+              {addingWeek ? (
+                <Loader2 size={18} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Plus size={18} aria-hidden="true" />
+              )}
+              {addWeekLabel}
+            </Button>
           )}
         </main>
       </div>
