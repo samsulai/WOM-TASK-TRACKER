@@ -26,13 +26,23 @@ create table if not exists clients (
 -- simply skipped when reports are sent.
 alter table clients add column if not exists email text;
 
--- Optional monthly hours allowance ("time bought"), compared against hours
--- actually logged ("time used") in the app's budget card and weekly report
--- email. Null = budget tracking is off for this client; nothing is shown.
-alter table clients add column if not exists monthly_hours numeric(6,2);
+-- Google Sheet ID to live-sync this client's logged hours into (see README
+-- "Google Sheet sync"). Null = sync is off for this client; nothing is sent.
+alter table clients add column if not exists sheet_id text;
+
+-- Which tab in that Sheet to write to. Null = GOOGLE_SHEET_TAB secret's
+-- value, or "Tracker Sync" if that isn't set either -- different clients
+-- reasonably use different tab names (a fresh app-owned tab vs. a client's
+-- own pre-existing ledger tab).
+alter table clients add column if not exists sheet_tab text;
+
+-- Drops the old single-number "monthly hours" budget: replaced below by
+-- hours_purchases, a dated ledger of purchase events (matching how a real
+-- client's Google Sheet ledger already tracks "hours bought" -- a running
+-- history of irregular, dated amounts, not one static figure). No real
+-- client had this column set as of 2026-10-21, so nothing to migrate.
 alter table clients drop constraint if exists clients_monthly_hours_check;
-alter table clients add constraint clients_monthly_hours_check
-  check (monthly_hours is null or (monthly_hours >= 0 and monthly_hours <= 1000));
+alter table clients drop column if exists monthly_hours;
 
 create table if not exists weeks (
   id          uuid primary key default gen_random_uuid(),
@@ -63,6 +73,30 @@ create table if not exists tasks (
 );
 
 create index if not exists tasks_week_id_idx on tasks (week_id);
+
+-- Lets a task be held back from Google Sheet sync until an admin reviews
+-- it -- see README "Slack task logging". Defaults to true: every task
+-- created in the app itself (src/App.jsx's addTask) is implicitly already
+-- "verified", since an admin typed it in directly. Only the Slack
+-- integration (supabase/functions/slack-log-task) sets this false on
+-- insert, since that's the one input path with no review step before the
+-- data lands in the database.
+alter table tasks add column if not exists verified boolean not null default true;
+
+-- A dated ledger of "hours bought" purchase events for a client -- see
+-- README "Client budgets". Each row is one purchase (date + amount, plus an
+-- optional note); the running total is just the sum of these, compared
+-- against all hours ever logged for the client (see App.jsx's grandTotal).
+create table if not exists hours_purchases (
+  id            uuid primary key default gen_random_uuid(),
+  client_id     uuid not null references clients(id) on delete cascade,
+  purchased_on  date not null default current_date,
+  hours         numeric(6,2) not null check (hours > 0 and hours <= 1000),
+  note          text not null default '',
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists hours_purchases_client_id_idx on hours_purchases (client_id);
 
 -- Which weekly reports have already gone out, so a report is never emailed
 -- twice for the same client + week (even if it's triggered twice). Row Level
@@ -111,6 +145,7 @@ create trigger tasks_set_updated_at
 alter table weeks enable row level security;
 alter table tasks enable row level security;
 alter table clients enable row level security;
+alter table hours_purchases enable row level security;
 
 drop policy if exists "weeks_select_all" on weeks;
 drop policy if exists "weeks_insert_all" on weeks;
@@ -139,6 +174,15 @@ create policy "clients_insert_all" on clients for insert with check (true);
 create policy "clients_update_all" on clients for update using (true) with check (true);
 create policy "clients_delete_all" on clients for delete using (true);
 
+drop policy if exists "hours_purchases_select_all" on hours_purchases;
+drop policy if exists "hours_purchases_insert_all" on hours_purchases;
+drop policy if exists "hours_purchases_update_all" on hours_purchases;
+drop policy if exists "hours_purchases_delete_all" on hours_purchases;
+create policy "hours_purchases_select_all" on hours_purchases for select using (true);
+create policy "hours_purchases_insert_all" on hours_purchases for insert with check (true);
+create policy "hours_purchases_update_all" on hours_purchases for update using (true) with check (true);
+create policy "hours_purchases_delete_all" on hours_purchases for delete using (true);
+
 -- ---------------------------------------------------------------------------
 -- Realtime: add all three tables to the publication Supabase's realtime
 -- service listens to. Without this, postgres_changes subscriptions never
@@ -165,5 +209,12 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'clients'
   ) then
     alter publication supabase_realtime add table clients;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'hours_purchases'
+  ) then
+    alter publication supabase_realtime add table hours_purchases;
   end if;
 end $$;

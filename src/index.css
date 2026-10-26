@@ -30,6 +30,8 @@
   --color-destructive-foreground: #ffffff;
   --color-success: var(--accent-green);
   --color-success-foreground: #ffffff;
+  --color-warning: var(--accent-amber);
+  --color-warning-foreground: #ffffff;
   --color-border: var(--border);
   --color-input: var(--border);
   --color-ring: var(--accent-blue);
@@ -84,6 +86,9 @@
   --accent-red: #ff5c72;
   --accent-red-dim: rgba(255, 92, 114, 0.15);
   --accent-red-border: rgba(255, 92, 114, 0.45);
+  --accent-amber: #ffb648;
+  --accent-amber-dim: rgba(255, 182, 72, 0.15);
+  --accent-amber-border: rgba(255, 182, 72, 0.4);
 
   /* Ledger-bar / legend segments: a monochrome blue ramp, light to dark. */
   --seg-1: #003dff;
@@ -131,6 +136,9 @@
   --accent-red: #d92c46;
   --accent-red-dim: rgba(217, 44, 70, 0.1);
   --accent-red-border: rgba(217, 44, 70, 0.4);
+  --accent-amber: #b7791f;
+  --accent-amber-dim: rgba(183, 121, 31, 0.12);
+  --accent-amber-border: rgba(183, 121, 31, 0.35);
 
   --seg-1: #003dff;
   --seg-2: #5981ff;
@@ -162,6 +170,10 @@ body {
     var(--bg);
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: lining-nums tabular-nums;
+  /* Smooths the dark/light toggle into a fade instead of an instant snap --
+     scoped to just body's own background/text so it never fights the
+     per-component transitions (buttons, pills, etc.) already set elsewhere. */
+  transition: background-color 240ms var(--ease), color 240ms var(--ease);
 }
 
 h1,

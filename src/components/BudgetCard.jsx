@@ -1,157 +1,191 @@
-import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
-import { formatHours } from '../format'
-import Tooltip from './Tooltip'
-import { Badge } from '@/components/ui/badge'
+import { useState } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
+import { formatHours, formatWeekStart } from '../format'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
+import DurationInput from './DurationInput'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 
-function monthLabel(monthKey) {
-  const [y, m] = monthKey.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+function todayAsDateInput() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Commits a typed number on blur, same as the week date/label fields --
-// nothing else in this app asks for an explicit Save, so this doesn't either.
-function commitHours(e, current, onUpdateBudget) {
-  const value = e.target.value.trim()
-  if (value === String(current ?? '')) return
-  onUpdateBudget(value)
-}
+// Logging a new purchase isn't something you do every visit -- tucked
+// behind a dialog (triggered by "+ Add hours") instead of a form that's
+// always sitting open, so the card's default state is just the balance.
+function AddPurchaseForm({ clientName, onAddPurchase, onDone }) {
+  const [purchasedOn, setPurchasedOn] = useState(todayAsDateInput)
+  const [hours, setHours] = useState(0)
+  const [note, setNote] = useState('')
 
-// "Time bought vs. time used" for whichever single client is currently in
-// view (admin viewing one client, or a client on their own read-only link).
-// Hidden entirely in any multi-client view -- a budget only means something
-// against one client's agreed hours.
-export default function BudgetCard({
-  clientName,
-  monthlyHours,
-  hoursUsed,
-  monthKey,
-  isCurrentMonth,
-  onPrevMonth,
-  onNextMonth,
-  onThisMonth,
-  onUpdateBudget,
-}) {
-  const hasBudget = monthlyHours != null
-  const editable = Boolean(onUpdateBudget)
-
-  const monthNav = (
-    <div className="flex items-center gap-1.5">
-      <Button variant="outline" size="icon" className="size-9" aria-label="Previous month" title="Previous month" onClick={onPrevMonth}>
-        <ChevronLeft size={18} aria-hidden="true" />
-      </Button>
-      <Button
-        variant="outline"
-        size="icon"
-        className="size-9"
-        aria-label="Next month"
-        title="Next month"
-        disabled={isCurrentMonth}
-        onClick={onNextMonth}
-      >
-        <ChevronRight size={18} aria-hidden="true" />
-      </Button>
-      {!isCurrentMonth && (
-        <Button variant="outline" className="h-9" onClick={onThisMonth}>
-          This month
-        </Button>
-      )}
-    </div>
-  )
-
-  if (!hasBudget) {
-    if (!editable) return null
-    return (
-      <Card className="mb-4">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">{monthLabel(monthKey)}</p>
-            <h2 className="text-lg font-medium">Hours budget</h2>
-          </div>
-          {monthNav}
-        </div>
-        <label className="block">
-          <span className="mb-2.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Settings2 size={14} className="flex-none" aria-hidden="true" />
-            Set a monthly hours budget for {clientName}, to track time bought vs. time used
-          </span>
-          <span className="flex items-center gap-2">
-            <input
-              type="number"
-              min="0"
-              max="1000"
-              step="0.5"
-              inputMode="decimal"
-              placeholder="e.g. 20"
-              autoComplete="off"
-              onBlur={(e) => commitHours(e, '', onUpdateBudget)}
-              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-              className="w-[90px] rounded-md border border-border bg-transparent px-2.5 py-2 text-base font-semibold text-foreground outline-none transition-colors hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/40"
-            />
-            <span className="text-sm text-muted-foreground">hrs / month</span>
-          </span>
-        </label>
-      </Card>
-    )
+  const submit = (e) => {
+    e.preventDefault()
+    if (!hours || hours <= 0) return
+    onAddPurchase({ purchasedOn, hours, note })
+    setHours(0)
+    setNote('')
+    onDone()
   }
 
-  const over = hoursUsed > monthlyHours
-  const remaining = monthlyHours - hoursUsed
-  const pct = monthlyHours > 0 ? Math.min(100, (hoursUsed / monthlyHours) * 100) : hoursUsed > 0 ? 100 : 0
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-muted-foreground">Date</span>
+        <input
+          type="date"
+          value={purchasedOn}
+          onChange={(e) => setPurchasedOn(e.target.value)}
+          className="h-9 rounded-md border border-border bg-transparent px-2.5 text-sm text-foreground outline-none transition-colors hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/40"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-muted-foreground">Hours</span>
+        <DurationInput
+          value={hours}
+          onCommit={setHours}
+          max={1000}
+          autoFocus
+          ariaLabel={`Hours bought for ${clientName}`}
+          className="h-9 rounded-md border border-border bg-transparent px-2.5 text-sm font-medium text-foreground transition-colors hover:border-muted-foreground focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-muted-foreground">Note (optional)</span>
+        <input
+          type="text"
+          placeholder="e.g. retainer top-up"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          className="h-9 w-full rounded-md border border-border bg-transparent px-2.5 text-sm text-foreground outline-none transition-colors hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/40"
+        />
+      </label>
+      <Button type="submit" className="mt-1" disabled={!hours || hours <= 0}>
+        <Plus size={16} aria-hidden="true" /> Add hours
+      </Button>
+    </form>
+  )
+}
+
+// "Hours bought vs. hours used" for whichever single client is currently in
+// view (admin viewing one client, or a client on their own read-only link).
+// Hidden entirely in any multi-client view -- a budget only means something
+// against one client's purchase history. All-time cumulative, not scoped to
+// a calendar month -- matches the real Sheet's own running-balance column.
+export default function BudgetCard({ clientName, hoursBought, hoursUsed, purchases, onAddPurchase, onDeletePurchase }) {
+  const editable = Boolean(onAddPurchase)
+  const [open, setOpen] = useState(false)
+  if (!editable && purchases.length === 0) return null
+
+  const over = hoursUsed > hoursBought
+  // The bar's own 100% is whichever is bigger -- normally hoursBought, but
+  // once over budget the bar has to stretch past its own target to show
+  // the overage as a visibly distinct red segment past the blue.
+  const domain = Math.max(hoursBought, hoursUsed, 1)
+  const withinPct = (Math.min(hoursUsed, hoursBought) / domain) * 100
+  const overPct = over ? ((hoursUsed - hoursBought) / domain) * 100 : 0
 
   return (
     <Card className="mb-4">
-      <div className="mb-1 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">{monthLabel(monthKey)}</p>
-          <h2 className="text-lg font-medium">Hours budget</h2>
-        </div>
-        {monthNav}
+      <div className="mb-3.5 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-medium">Retainer balance</h2>
+        {editable && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus size={16} aria-hidden="true" /> Add hours
+              </Button>
+            </DialogTrigger>
+            <DialogContent aria-label="Add hours bought" className="max-w-[380px]">
+              <DialogHeader>
+                <DialogTitle>Add hours bought</DialogTitle>
+                <DialogDescription>Log a new hours purchase for {clientName}.</DialogDescription>
+              </DialogHeader>
+              <AddPurchaseForm clientName={clientName} onAddPurchase={onAddPurchase} onDone={() => setOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
-      <div className="my-3.5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <span className={`text-[2.3rem] font-medium leading-none ${over ? 'text-destructive' : 'text-primary'}`}>
-            {formatHours(hoursUsed)}
-          </span>
-          <span className="block text-xs font-medium text-muted-foreground">
-            used of{' '}
-            {editable ? (
-              <Tooltip text="Click to change this client's monthly hours budget.">
-                <input
-                  key={monthlyHours}
-                  type="number"
-                  min="0"
-                  max="1000"
-                  step="0.5"
-                  inputMode="decimal"
-                  aria-label={`Monthly hours bought for ${clientName}`}
-                  defaultValue={monthlyHours}
-                  onBlur={(e) => commitHours(e, monthlyHours, onUpdateBudget)}
-                  onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                  className="w-[5.5ch] border-0 border-b border-dashed border-muted-foreground bg-transparent p-0 text-xs font-medium text-inherit outline-none hover:border-solid hover:border-primary focus-visible:border-solid focus-visible:border-primary"
-                />
-              </Tooltip>
-            ) : (
-              monthlyHours
-            )}{' '}
-            hrs bought
-          </span>
+      {hoursBought > 0 ? (
+        <>
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-sm font-medium text-foreground">
+              {formatHours(hoursUsed)} of {formatHours(hoursBought)} used
+            </span>
+            {over && (
+              <span className="text-sm font-semibold text-destructive">
+                {formatHours(hoursUsed - hoursBought)} over
+              </span>
+            )}
+          </div>
+
+          <div
+            className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted"
+            role="img"
+            aria-label={`${clientName} has used ${formatHours(hoursUsed)} of ${formatHours(hoursBought)} bought`}
+          >
+            <div className="h-full bg-primary" style={{ width: `${withinPct}%` }} />
+            {overPct > 0 && <div className="h-full bg-destructive" style={{ width: `${overPct}%` }} />}
+          </div>
+
+          <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="size-2 flex-none rounded-full bg-primary" aria-hidden="true" /> Within bought hours
+            </span>
+            {over && (
+              <span className="flex items-center gap-1.5">
+                <span className="size-2 flex-none rounded-full bg-destructive" aria-hidden="true" /> Over
+              </span>
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          No hours purchased yet{editable ? ' — click "Add hours" to log the first one.' : '.'}
+        </p>
+      )}
+
+      {purchases.length > 0 && (
+        <div className="mt-5">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Purchases</p>
+          <ul className="flex flex-col divide-y divide-border/60">
+            {purchases.map((p) => (
+              <li key={p.id} className="group flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">{formatWeekStart(p.purchased_on)}</p>
+                  <p className="truncate text-xs text-muted-foreground">{p.note || 'No note'}</p>
+                </div>
+                <div className="flex flex-none items-center gap-1">
+                  <span className="font-semibold text-foreground">+{formatHours(Number(p.hours))}</span>
+                  {editable && (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className={cn(
+                        'size-8 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100'
+                      )}
+                      aria-label="Delete purchase"
+                      title="Delete purchase"
+                      onClick={() => onDeletePurchase(p.id)}
+                    >
+                      <Trash2 size={14} aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
-        <Badge variant={over ? 'destructive' : 'default'}>{over ? 'Over budget' : 'On track'}</Badge>
-      </div>
-
-      <Progress
-        value={pct}
-        indicatorClassName={over ? 'bg-destructive' : undefined}
-        aria-label={`${clientName} hours used this month`}
-      />
-
-      <p className={`mt-2 text-sm ${over ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
-        {over ? `${formatHours(-remaining)} over budget` : `${formatHours(remaining)} remaining`}
-      </p>
+      )}
     </Card>
   )
 }

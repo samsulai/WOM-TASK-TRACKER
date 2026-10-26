@@ -17,7 +17,7 @@
 // Everything above `Deno.serve` is plain functions with no Deno/network
 // dependency at import time, so it can be unit-tested outside Supabase.
 
-export type Client = { id: string; name: string; email: string | null; monthly_hours: number | string | null }
+export type Client = { id: string; name: string; email: string | null }
 export type Week = { id: string; week_start: string; label: string; client_id: string | null }
 export type Task = {
   id: string
@@ -38,10 +38,11 @@ export type Report = {
   done: number
   open: number
   byProject: { project: string; hours: number; tasks: number }[]
-  // "Time bought vs. time used" for the calendar month weekStart falls in --
-  // undefined when the client has no monthly_hours set, so the email can
+  // "Hours bought vs. hours used", all-time cumulative (matching the
+  // dated purchase ledger and the real Sheet's running-balance column) --
+  // undefined when the client has no purchases on file, so the email can
   // leave the section out entirely rather than showing a budget of nothing.
-  budget?: { monthlyHours: number; hoursUsed: number }
+  budget?: { hoursBought: number; hoursUsed: number }
 }
 
 // ---------------------------------------------------------------- report data
@@ -80,18 +81,6 @@ export function buildReports(weeks: Week[], tasks: Task[], clients: Client[]): R
   return reports.sort((a, b) => a.client.name.localeCompare(b.client.name))
 }
 
-// The reported week's calendar month, as a [start, end) half-open range of
-// week_start dates -- used to total "hours used" for a client's budget line,
-// which is a monthly figure, not a weekly one.
-export function monthRangeForWeek(weekStart: string): { from: string; to: string } {
-  const [y, m] = weekStart.split('-').map(Number)
-  const from = `${y}-${String(m).padStart(2, '0')}-01`
-  const nextY = m === 12 ? y + 1 : y
-  const nextM = m === 12 ? 1 : m + 1
-  const to = `${nextY}-${String(nextM).padStart(2, '0')}-01`
-  return { from, to }
-}
-
 // ------------------------------------------------------------------ rendering
 
 const esc = (value: unknown) =>
@@ -126,10 +115,10 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 function budgetLine(budget: NonNullable<Report['budget']>): string {
-  const remaining = budget.monthlyHours - budget.hoursUsed
+  const remaining = budget.hoursBought - budget.hoursUsed
   return remaining < 0
-    ? `${formatHours(-remaining)} over this month's ${formatHours(budget.monthlyHours)} budget`
-    : `${formatHours(remaining)} left of this month's ${formatHours(budget.monthlyHours)} budget`
+    ? `${formatHours(-remaining)} over ${formatHours(budget.hoursBought)} bought`
+    : `${formatHours(remaining)} left of ${formatHours(budget.hoursBought)} bought`
 }
 
 export function renderEmail(
@@ -163,14 +152,14 @@ export function renderEmail(
   const budgetHtml = report.budget
     ? (() => {
         const b = report.budget!
-        const over = b.hoursUsed > b.monthlyHours
-        const pct = b.monthlyHours > 0 ? Math.min(100, (b.hoursUsed / b.monthlyHours) * 100) : 100
+        const over = b.hoursUsed > b.hoursBought
+        const pct = b.hoursBought > 0 ? Math.min(100, (b.hoursUsed / b.hoursBought) * 100) : 100
         const barColor = over ? '#d92c46' : BRAND_BLUE
         return `<tr><td style="padding:4px 28px 8px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fd;border:1px solid #e1e4ef;border-radius:8px;">
             <tr><td style="padding:14px 16px;">
               <div style="display:flex;justify-content:space-between;font-size:13px;color:#4a507d;margin-bottom:8px;">
-                <span>Month to date</span>
+                <span>Hours bought</span>
                 <span style="font-weight:600;color:${over ? '#d92c46' : BRAND_NAVY};">${esc(budgetLine(b))}</span>
               </div>
               <div style="height:8px;border-radius:4px;background:#e1e4ef;overflow:hidden;">
@@ -229,7 +218,7 @@ export function renderEmail(
     range,
     '',
     `Hours logged: ${formatHours(report.totalHours)}   Done: ${report.done}   Open: ${report.open}`,
-    ...(report.budget ? [`Month to date: ${budgetLine(report.budget)}`] : []),
+    ...(report.budget ? [`Hours bought: ${budgetLine(report.budget)}`] : []),
     '',
     ...report.tasks.map(
       (t) =>
@@ -355,24 +344,26 @@ async function loadReports(weekStart: string): Promise<Report[]> {
   const clientIds = [...new Set(weeks.map((w) => w.client_id))].join(',')
   const [tasks, clients] = await Promise.all([
     rest(`tasks?select=id,week_id,project,status,hours,notes,done,created_at&week_id=in.(${weekIds})`),
-    rest(`clients?select=id,name,email,monthly_hours&id=in.(${clientIds})`),
+    rest(`clients?select=id,name,email&id=in.(${clientIds})`),
   ])
   return buildReports(weeks, tasks, clients)
 }
 
-// Hours a client has logged across the WHOLE calendar month weekStart falls
-// in (not just the one reported week) -- compared against monthly_hours for
-// the email's "time bought vs. time used" line. A separate query because the
-// month can span weeks outside the single week this report is about.
-async function monthHoursUsed(clientId: string, weekStart: string): Promise<number> {
-  const { from, to } = monthRangeForWeek(weekStart)
-  const weeks: { id: string }[] = await rest(
-    `weeks?select=id&client_id=eq.${clientId}&week_start=gte.${from}&week_start=lt.${to}`
-  )
+// All-time hours a client has ever logged (every week, not just the reported
+// one) -- compared against hoursBoughtToDate for the email's "hours bought
+// vs. hours used" line, matching the ledger's own running-total model.
+async function allTimeHoursUsed(clientId: string): Promise<number> {
+  const weeks: { id: string }[] = await rest(`weeks?select=id&client_id=eq.${clientId}`)
   if (weeks.length === 0) return 0
   const weekIds = weeks.map((w) => w.id).join(',')
   const tasks: { hours: number | string }[] = await rest(`tasks?select=hours&week_id=in.(${weekIds})`)
   return tasks.reduce((sum, t) => sum + Number(t.hours || 0), 0)
+}
+
+// Lifetime hours bought for a client, summed from the purchase ledger.
+async function hoursBoughtToDate(clientId: string): Promise<number> {
+  const purchases: { hours: number | string }[] = await rest(`hours_purchases?select=hours&client_id=eq.${clientId}`)
+  return purchases.reduce((sum, p) => sum + Number(p.hours || 0), 0)
 }
 
 async function sentClientIds(weekStart: string): Promise<Set<string>> {
@@ -408,11 +399,11 @@ async function deliver(report: Report, to: string, test: boolean) {
   // mutating the shared `report` object -- the same Report instance can be
   // delivered more than once in a single run (e.g. a test send followed by
   // the real send), and each delivery should compute this fresh.
-  const monthlyHours = report.client.monthly_hours == null ? null : Number(report.client.monthly_hours)
+  const hoursBought = await hoursBoughtToDate(report.client.id)
   const withBudget: Report =
-    monthlyHours == null
+    hoursBought <= 0
       ? report
-      : { ...report, budget: { monthlyHours, hoursUsed: await monthHoursUsed(report.client.id, report.weekStart) } }
+      : { ...report, budget: { hoursBought, hoursUsed: await allTimeHoursUsed(report.client.id) } }
 
   const { subject, html, text } = renderEmail(withBudget, {
     appUrl: env('APP_URL'),

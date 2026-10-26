@@ -1,12 +1,12 @@
+import { useState } from 'react'
 import { ArrowRightLeft, Check, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react'
 import Tooltip from './Tooltip'
 import TaskRow from './TaskRow'
+import AddTaskForm from './AddTaskForm'
 import { formatHours } from '../format'
-import { useFlashOnChange } from '../hooks/useFlashOnChange'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 
 export default function WeekCard({
@@ -17,6 +17,7 @@ export default function WeekCard({
   onUpdateTaskField,
   onAddTask,
   onDeleteTask,
+  onVerifyTask,
   onUpdateWeekField,
   onDeleteWeek,
   onFlushTask,
@@ -28,13 +29,17 @@ export default function WeekCard({
   readOnly,
 }) {
   const weekHours = tasks.reduce((sum, t) => sum + Number(t.hours || 0), 0)
-  const doneCount = tasks.filter((t) => t.done).length
   const weekError = fieldErrors.get(`week:${week.id}`)
-  const bumpHours = useFlashOnChange(weekHours)
+  const [addingTask, setAddingTask] = useState(false)
+  const saveNewTask = async (taskData) => {
+    const ok = await onAddTask(week.id, taskData)
+    if (ok) setAddingTask(false)
+    return ok
+  }
 
   return (
     <Card className="week-card">
-      <div className="mb-5 flex items-center justify-between gap-3 border-b border-border pb-4">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="flex items-center gap-1.5">
           <Button
             variant="outline"
@@ -63,85 +68,80 @@ export default function WeekCard({
           </Button>
         </div>
         {!readOnly && (
-          <Button onClick={() => onAddTask(week.id)}>
-            <Plus size={18} aria-hidden="true" /> Add task
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button onClick={() => setAddingTask(true)} disabled={addingTask}>
+              <Plus size={18} aria-hidden="true" /> Add task
+            </Button>
+            <Button variant="destructive" onClick={() => onDeleteWeek(week.id)}>
+              <Trash2 size={16} aria-hidden="true" /> Delete week
+            </Button>
+          </div>
         )}
       </div>
 
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 max-sm:w-full max-sm:flex-none">
-          <p className="eyebrow mb-0.5 text-xs font-medium text-muted-foreground">Week of</p>
+      {/* Week-level facts as a plain, borderless block -- the hours/done
+          counts already live in the stat cards above and the Tasks table's
+          own footer total, so this is just what's editable: the date,
+          an optional label, and (admin-only) who the week belongs to. */}
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <input
             type="date"
             value={week.week_start}
             disabled={readOnly}
             onChange={(e) => onUpdateWeekField(week.id, { week_start: e.target.value })}
-            className="-ml-1.5 block rounded-md border-none bg-transparent px-1.5 py-0.5 text-2xl font-medium text-foreground outline-none transition-colors hover:not-disabled:bg-accent focus-visible:not-disabled:bg-accent disabled:opacity-100"
+            className="block w-full max-w-[220px] rounded-md border-none bg-transparent px-1.5 py-0.5 text-xl font-medium text-foreground outline-none transition-colors hover:not-disabled:bg-accent focus-visible:not-disabled:bg-accent disabled:opacity-100"
           />
           <input
             type="text"
-            placeholder="Add a label…"
+            placeholder="Add a label for this week…"
             value={week.label}
             disabled={readOnly}
             onChange={(e) => onUpdateWeekField(week.id, { label: e.target.value })}
-            className="mt-1 block w-60 max-w-full border-0 border-b border-border bg-transparent py-1 text-sm text-muted-foreground outline-none transition-colors placeholder:text-muted-foreground/70 hover:not-disabled:border-muted-foreground focus-visible:not-disabled:border-muted-foreground disabled:opacity-100"
+            className="mt-1 block w-60 max-w-full border-0 border-b border-border bg-transparent px-1.5 py-1 text-sm text-muted-foreground outline-none transition-colors placeholder:text-muted-foreground/70 hover:not-disabled:border-muted-foreground focus-visible:not-disabled:border-muted-foreground disabled:opacity-100"
           />
-          {clients && <WeekOwner week={week} clients={clients} onMove={(clientId) => onMoveWeek(week.id, clientId)} />}
           {weekError && <p className="mt-2 text-sm text-destructive">{weekError}</p>}
         </div>
-        <div className="flex-none text-right max-sm:order-1 max-sm:text-left">
-          <span
-            className={cn(
-              'inline-block text-2xl font-medium text-primary transition-transform duration-200 ease-out',
-              bumpHours && 'scale-110'
-            )}
-          >
-            {formatHours(weekHours)}
-          </span>
-          <span className="block text-xs font-medium text-muted-foreground">logged</span>
-          {tasks.length > 0 && (
-            <div className="mt-1.5 flex items-center justify-end gap-2">
-              <Progress value={(doneCount / tasks.length) * 100} className="h-1 w-12" />
-              <span className="text-xs font-medium text-muted-foreground">
-                {doneCount}/{tasks.length}
-              </span>
-            </div>
-          )}
-        </div>
-        {!readOnly && (
-          <Button variant="destructive" onClick={() => onDeleteWeek(week.id)}>
-            <Trash2 size={16} aria-hidden="true" /> Delete week
-          </Button>
+        {clients && <WeekOwner week={week} clients={clients} onMove={(clientId) => onMoveWeek(week.id, clientId)} />}
+      </div>
+
+      <div className="mb-2.5 flex items-baseline justify-between gap-3">
+        <h3 className="text-base font-medium">Tasks</h3>
+        {!readOnly && tasks.length > 0 && !addingTask && (
+          <p className="text-xs text-muted-foreground">Tick a task to mark it done</p>
         )}
       </div>
 
+      {addingTask && <AddTaskForm onSave={saveNewTask} onCancel={() => setAddingTask(false)} />}
+
       {/* Below sm: collapses to stacked cards (each td shows its data-label
           as a caption) instead of a cramped, horizontally-scrolling table. */}
-      <table className="task-table w-full border-collapse text-sm max-sm:block">
-        <thead className="max-sm:hidden">
-          <tr>
-            <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Project</th>
-            <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Notes</th>
-            <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
-            <th className="p-2 pb-2.5 pr-3.5 text-right text-xs font-medium text-muted-foreground">Hours</th>
-            <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Done</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody className="max-sm:block">
-          {tasks.map((task) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              saving={savingIds.has(task.id)}
-              error={fieldErrors.get(task.id)}
-              onFieldChange={onUpdateTaskField}
-              onFlush={onFlushTask}
-              onDelete={onDeleteTask}
-              readOnly={readOnly}
-            />
-          ))}
+      <div className="overflow-hidden rounded-lg border border-border max-sm:overflow-visible max-sm:rounded-none max-sm:border-none">
+        <table className="task-table w-full border-collapse text-sm max-sm:block">
+          <thead className="max-sm:hidden">
+            <tr className="border-b border-border bg-muted/50">
+              <th className="p-2 pb-2.5 pl-3.5 text-left text-xs font-medium text-muted-foreground">Project</th>
+              <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Date</th>
+              <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
+              <th className="p-2 pb-2.5 pr-3.5 text-right text-xs font-medium text-muted-foreground">Hours</th>
+              <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Done</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody className="max-sm:block">
+            {tasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                saving={savingIds.has(task.id)}
+                error={fieldErrors.get(task.id)}
+                onFieldChange={onUpdateTaskField}
+                onFlush={onFlushTask}
+                onDelete={onDeleteTask}
+                onVerify={onVerifyTask}
+                readOnly={readOnly}
+              />
+            ))}
           {tasks.length === 0 && (
             <tr>
               <td colSpan={6} className="p-4 italic text-muted-foreground">
@@ -149,11 +149,33 @@ export default function WeekCard({
               </td>
             </tr>
           )}
-        </tbody>
-      </table>
+          </tbody>
+          {tasks.length > 0 && (
+            <tfoot className="max-sm:block">
+              <tr className="border-t border-border bg-muted/30 max-sm:flex max-sm:items-center max-sm:justify-between max-sm:p-2.5">
+                <td className="p-2 pl-3.5 max-sm:p-0" colSpan={3}>
+                  {!readOnly && !addingTask && (
+                    <button
+                      type="button"
+                      onClick={() => setAddingTask(true)}
+                      className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                    >
+                      <Plus size={16} aria-hidden="true" /> Add task
+                    </button>
+                  )}
+                </td>
+                <td className="p-2 pr-3.5 text-right max-sm:p-0" colSpan={3}>
+                  <span className="font-semibold text-foreground">{formatHours(weekHours)}</span>
+                  <span className="ml-1.5 text-xs text-muted-foreground">total</span>
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
 
-      {!readOnly && (
-        <Button variant="secondary" className="mx-auto mt-4 flex" onClick={() => onAddTask(week.id)}>
+      {!readOnly && tasks.length === 0 && !addingTask && (
+        <Button variant="secondary" className="mx-auto mt-4 flex" onClick={() => setAddingTask(true)}>
           <Plus size={18} aria-hidden="true" /> Add task
         </Button>
       )}
@@ -169,8 +191,7 @@ function WeekOwner({ week, clients, onMove }) {
   const options = [{ id: null, name: 'Internal (no client)' }, ...clients]
 
   return (
-    <div className="mt-3.5 flex flex-wrap items-center gap-2">
-      <span className="text-sm text-muted-foreground">Belongs to</span>
+    <div className="flex flex-wrap items-center gap-2">
       <span
         className={cn(
           'rounded-md bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground',

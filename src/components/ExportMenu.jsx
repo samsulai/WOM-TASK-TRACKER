@@ -6,7 +6,7 @@ export default function ExportMenu({ disabled, onExportXlsx, onExportCsv }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" disabled={disabled} title="Export">
+        <Button variant="outline" disabled={disabled} title="Export">
           <Download size={18} aria-hidden="true" /> <span className="hidden sm:inline">Export</span>
           <ChevronDown size={16} aria-hidden="true" />
         </Button>

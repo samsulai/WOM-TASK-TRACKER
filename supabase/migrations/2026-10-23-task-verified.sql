@@ -1,0 +1,11 @@
+-- Adds the "verified" gate that lets Slack-logged tasks
+-- (supabase/functions/slack-log-task) be reviewed by an admin before they
+-- reach a client's Google Sheet -- see README "Slack task logging" and
+-- "Google Sheet sync". Also folded into schema.sql for fresh installs; run
+-- this manually in the SQL Editor on an existing project. Safe to re-run,
+-- and only adds one column -- no data is touched.
+--
+-- Defaults to true: every existing task, and every task created from the
+-- app itself, is treated as already verified. Only new Slack-submitted
+-- tasks are inserted with verified = false.
+alter table tasks add column if not exists verified boolean not null default true;

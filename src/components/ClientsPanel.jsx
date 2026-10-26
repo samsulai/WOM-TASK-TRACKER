@@ -1,24 +1,32 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { formatHours } from '../format'
-import { Check, Copy, Eye, Plus, Trash2 } from 'lucide-react'
+import { Check, Copy, Eye, Plus, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
 
 export default function ClientsPanel({
   clients,
   clientStats,
+  purchaseTotals,
   onAddClient,
   onDeleteClient,
   onViewClient,
   onUpdateClientEmail,
-  onUpdateClientBudget,
+  onUpdateClientSheetId,
+  onUpdateClientSheetTab,
   onClose,
 }) {
   const [name, setName] = useState('')
   const [copiedId, setCopiedId] = useState(null)
+  const [search, setSearch] = useState('')
+
+  const filteredClients = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return clients
+    return clients.filter((c) => c.name.toLowerCase().includes(q))
+  }, [clients, search])
 
   const copyLink = async (id) => {
     const url = `${window.location.origin}${window.location.pathname}?client=${id}`
@@ -54,8 +62,22 @@ export default function ClientsPanel({
           </Button>
         </form>
 
-        <ul className="flex flex-col gap-2.5">
-          {clients.map((c) => {
+        {clients.length > 6 && (
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              type="text"
+              placeholder="Search clients…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+              aria-label="Search clients"
+            />
+          </div>
+        )}
+
+        <ul className="-mx-1 flex max-h-[420px] flex-col gap-2.5 overflow-y-auto px-1">
+          {filteredClients.map((c) => {
             const stats = clientStats.get(c.id)
             return (
               <li key={c.id} className="rounded-md border border-border/60 bg-muted/60 p-3.5">
@@ -73,6 +95,7 @@ export default function ClientsPanel({
                       {stats
                         ? `${formatHours(stats.hoursTotal)} · ${stats.weeksCount} week${stats.weeksCount === 1 ? '' : 's'} · ${stats.tasksOpen} open · ${stats.tasksDone} done`
                         : 'No weeks yet'}
+                      {purchaseTotals.get(c.id) > 0 && ` · ${formatHours(purchaseTotals.get(c.id))} bought`}
                     </span>
                   </button>
                   <div className="flex flex-none items-center gap-1.5">
@@ -99,39 +122,50 @@ export default function ClientsPanel({
                   </div>
                 </div>
 
-                <div className="mt-3 grid grid-cols-[1fr_128px] gap-2 border-t border-border/60 pt-3">
+                <div className="mt-3 flex flex-col gap-1 border-t border-border/60 pt-3">
+                  <Label htmlFor={`email-${c.id}`}>Report email</Label>
+                  <Input
+                    id={`email-${c.id}`}
+                    key={`${c.id}:${c.email || ''}`}
+                    type="email"
+                    className="h-9"
+                    placeholder="None"
+                    defaultValue={c.email || ''}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value !== (c.email || '')) onUpdateClientEmail(c.id, value)
+                    }}
+                  />
+                </div>
+
+                <div className="mt-2 grid grid-cols-[1fr_110px] gap-2">
                   <div className="flex min-w-0 flex-col gap-1">
-                    <Label htmlFor={`email-${c.id}`}>Report email</Label>
+                    <Label htmlFor={`sheet-${c.id}`}>Google Sheet sync (optional)</Label>
                     <Input
-                      id={`email-${c.id}`}
-                      key={`${c.id}:${c.email || ''}`}
-                      type="email"
+                      id={`sheet-${c.id}`}
+                      key={`${c.id}:${c.sheet_id || ''}`}
+                      type="text"
                       className="h-9"
-                      placeholder="None"
-                      defaultValue={c.email || ''}
+                      placeholder="Sheet ID or URL — none"
+                      defaultValue={c.sheet_id || ''}
                       onBlur={(e) => {
                         const value = e.target.value.trim()
-                        if (value !== (c.email || '')) onUpdateClientEmail(c.id, value)
+                        if (value !== (c.sheet_id || '')) onUpdateClientSheetId(c.id, value)
                       }}
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <Label htmlFor={`budget-${c.id}`}>Monthly hours</Label>
+                    <Label htmlFor={`sheet-tab-${c.id}`}>Tab name</Label>
                     <Input
-                      id={`budget-${c.id}`}
-                      key={`${c.id}:${c.monthly_hours ?? ''}`}
-                      type="number"
-                      min="0"
-                      max="1000"
-                      step="0.5"
-                      inputMode="decimal"
-                      placeholder="None"
-                      className="h-9 text-right"
-                      defaultValue={c.monthly_hours ?? ''}
+                      id={`sheet-tab-${c.id}`}
+                      key={`${c.id}:${c.sheet_tab || ''}`}
+                      type="text"
+                      className="h-9"
+                      placeholder="Tracker Sync"
+                      defaultValue={c.sheet_tab || ''}
                       onBlur={(e) => {
                         const value = e.target.value.trim()
-                        const current = c.monthly_hours ?? ''
-                        if (value !== String(current)) onUpdateClientBudget(c.id, value)
+                        if (value !== (c.sheet_tab || '')) onUpdateClientSheetTab(c.id, value)
                       }}
                     />
                   </div>
@@ -139,7 +173,10 @@ export default function ClientsPanel({
               </li>
             )
           })}
-          {clients.length === 0 && <p className={cn('italic text-muted-foreground')}>No clients yet.</p>}
+          {clients.length === 0 && <p className="italic text-muted-foreground">No clients yet.</p>}
+          {clients.length > 0 && filteredClients.length === 0 && (
+            <p className="italic text-muted-foreground">No clients match "{search}".</p>
+          )}
         </ul>
       </DialogContent>
     </Dialog>

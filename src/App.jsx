@@ -143,6 +143,7 @@ export default function App() {
   const [reportsPanelOpen, setReportsPanelOpen] = useState(false)
   const [weeks, setWeeks] = useState([])
   const [tasks, setTasks] = useState([])
+  const [purchases, setPurchases] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [globalNotice, setGlobalNotice] = useState(null)
@@ -173,6 +174,7 @@ export default function App() {
   // settles, so a remote change can't clobber keystrokes mid-edit.
   const weeksRef = useRef(weeks)
   const tasksRef = useRef(tasks)
+  const purchasesRef = useRef(purchases)
   const dirtyWeekIds = useRef(new Set())
   const dirtyTaskIds = useRef(new Set())
   const editVersion = useRef(new Map()) // id -> monotonically increasing counter
@@ -192,6 +194,10 @@ export default function App() {
     weeksRef.current = next
     setWeeks(next)
   }
+  const applyPurchases = (next) => {
+    purchasesRef.current = next
+    setPurchases(next)
+  }
 
   // ---------------------------------------------------------------------
   // Initial load + realtime subscription
@@ -205,19 +211,24 @@ export default function App() {
       const clientsQuery = clientId
         ? supabase.from('clients').select('*').eq('id', clientId)
         : supabase.from('clients').select('*').order('created_at', { ascending: true })
-      const [weeksRes, tasksRes, clientsRes] = await Promise.all([
+      const purchasesQuery = clientId
+        ? supabase.from('hours_purchases').select('*').eq('client_id', clientId)
+        : supabase.from('hours_purchases').select('*')
+      const [weeksRes, tasksRes, clientsRes, purchasesRes] = await Promise.all([
         supabase.from('weeks').select('*').order('week_start', { ascending: false }),
         supabase.from('tasks').select('*').order('created_at', { ascending: true }),
         clientsQuery,
+        purchasesQuery,
       ])
       if (cancelled) return
-      if (weeksRes.error || tasksRes.error || clientsRes.error) {
-        setLoadError((weeksRes.error || tasksRes.error || clientsRes.error).message)
+      if (weeksRes.error || tasksRes.error || clientsRes.error || purchasesRes.error) {
+        setLoadError((weeksRes.error || tasksRes.error || clientsRes.error || purchasesRes.error).message)
         setLoading(false)
         return
       }
 
       setClients(clientsRes.data)
+      applyPurchases(purchasesRes.data)
 
       let weeksData = weeksRes.data
       let tasksData = tasksRes.data
@@ -275,6 +286,14 @@ export default function App() {
             clearTimeout(timer)
             saveTimers.current.delete(payload.old.id)
           }
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hours_purchases' }, (payload) => {
+        if (payload.eventType !== 'DELETE' && clientId && payload.new.client_id !== clientId) return
+        if (payload.eventType === 'DELETE') {
+          applyPurchases(purchasesRef.current.filter((p) => p.id !== payload.old.id))
+        } else {
+          applyPurchases(upsertById(purchasesRef.current, payload.new))
         }
       })
       .subscribe()
@@ -373,17 +392,47 @@ export default function App() {
     [flushTaskSave, scheduleTaskSave]
   )
 
-  const addTask = useCallback(async (weekId) => {
+  // `date` (a YYYY-MM-DD string from the Add Task form) becomes the task's
+  // created_at, fixed to noon UTC -- avoids any local/UTC day-shift risk
+  // (see sheetDate/taskToRecord in sheet-sync, which only ever reads the
+  // first 10 characters back out) while still letting someone log a task
+  // for an earlier day than today.
+  const addTask = useCallback(async (weekId, { project, date, status, hours }) => {
     const { data, error } = await supabase
       .from('tasks')
-      .insert({ week_id: weekId, project: '', status: 'Not Started', hours: 0, notes: '', done: false })
+      .insert({
+        week_id: weekId,
+        project: project.trim(),
+        status,
+        hours,
+        notes: '',
+        done: status === 'Done',
+        created_at: `${date}T12:00:00.000Z`,
+      })
       .select()
       .single()
     if (error) {
       setGlobalNotice({ type: 'error', text: `Couldn't add task: ${error.message}` })
-      return
+      return false
     }
     applyTasks(upsertById(tasksRef.current, data))
+    return true
+  }, [])
+
+  // A task logged via Slack (supabase/functions/slack-log-task) arrives
+  // with verified: false and is held out of that client's Google Sheet
+  // (see sheet-sync's loadClientTasks) until an admin approves it here --
+  // a one-shot action, not a continuously-edited field, so this bypasses
+  // updateTaskField's debounce/dirty-tracking entirely, same as deleteTask.
+  const verifyTask = useCallback(async (taskId) => {
+    const backup = tasksRef.current.find((t) => t.id === taskId)
+    if (!backup) return
+    applyTasks(tasksRef.current.map((t) => (t.id === taskId ? { ...t, verified: true } : t)))
+    const { error } = await supabase.from('tasks').update({ verified: true }).eq('id', taskId)
+    if (error) {
+      applyTasks(tasksRef.current.map((t) => (t.id === taskId ? { ...t, verified: backup.verified } : t)))
+      setGlobalNotice({ type: 'error', text: `Couldn't approve task: ${error.message}` })
+    }
   }, [])
 
   const deleteTask = useCallback(async (taskId) => {
@@ -564,27 +613,83 @@ export default function App() {
     [clients]
   )
 
-  const updateClientBudget = useCallback(
+  const addHoursPurchase = useCallback(async (targetClientId, { purchasedOn, hours, note }) => {
+    const parsed = Number(hours)
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1000) {
+      setGlobalNotice({ type: 'error', text: 'Hours must be a number greater than 0 and no more than 1000.' })
+      return
+    }
+    const { data, error } = await supabase
+      .from('hours_purchases')
+      .insert({ client_id: targetClientId, purchased_on: purchasedOn, hours: parsed, note: (note || '').trim() })
+      .select()
+      .single()
+    if (error) {
+      setGlobalNotice({
+        type: 'error',
+        text: /hours_purchases/i.test(error.message)
+          ? "Couldn't add hours — the database hasn't been updated for the hours ledger yet (see README → Client budgets)."
+          : `Couldn't add hours: ${error.message}`,
+      })
+      return
+    }
+    applyPurchases(upsertById(purchasesRef.current, data))
+  }, [])
+
+  const deleteHoursPurchase = useCallback(async (purchaseId) => {
+    const backup = purchasesRef.current.find((p) => p.id === purchaseId)
+    if (!backup) return
+    if (
+      !window.confirm(
+        `Delete the ${formatHours(Number(backup.hours))} purchase from ${formatWeekStart(backup.purchased_on)}? This cannot be undone.`
+      )
+    )
+      return
+    applyPurchases(purchasesRef.current.filter((p) => p.id !== purchaseId))
+    const { error } = await supabase.from('hours_purchases').delete().eq('id', purchaseId)
+    if (error) {
+      applyPurchases(upsertById(purchasesRef.current, backup))
+      setGlobalNotice({ type: 'error', text: `Couldn't delete purchase: ${error.message}` })
+    }
+  }, [])
+
+  const updateClientSheetId = useCallback(
     async (clientIdToUpdate, rawValue) => {
-      const previous = clients.find((c) => c.id === clientIdToUpdate)?.monthly_hours ?? null
-      let next = null
-      if (rawValue !== '') {
-        const parsed = Number(rawValue)
-        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1000) {
-          setGlobalNotice({ type: 'error', text: 'Monthly hours must be a number between 0 and 1000 (or left blank).' })
-          return
-        }
-        next = parsed
-      }
-      setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, monthly_hours: next } : c)))
-      const { error } = await supabase.from('clients').update({ monthly_hours: next }).eq('id', clientIdToUpdate)
+      const previous = clients.find((c) => c.id === clientIdToUpdate)?.sheet_id ?? null
+      // Accept a pasted full Sheet URL as well as a bare ID -- the ID is
+      // just the path segment between /d/ and the next /, and pasting the
+      // whole URL is the more natural thing to copy from the browser.
+      const trimmed = rawValue.trim()
+      const urlMatch = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/)
+      const next = urlMatch ? urlMatch[1] : trimmed || null
+      setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, sheet_id: next } : c)))
+      const { error } = await supabase.from('clients').update({ sheet_id: next }).eq('id', clientIdToUpdate)
       if (error) {
-        setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, monthly_hours: previous } : c)))
+        setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, sheet_id: previous } : c)))
         setGlobalNotice({
           type: 'error',
-          text: /monthly_hours/i.test(error.message)
-            ? "Couldn't save the budget — the database hasn't been updated for client budgets yet (see README → Client budgets)."
-            : `Couldn't save the budget: ${error.message}`,
+          text: /sheet_id/i.test(error.message)
+            ? "Couldn't save the Sheet ID — the database hasn't been updated for Google Sheet sync yet (see README → Google Sheet sync)."
+            : `Couldn't save the Sheet ID: ${error.message}`,
+        })
+      }
+    },
+    [clients]
+  )
+
+  const updateClientSheetTab = useCallback(
+    async (clientIdToUpdate, rawValue) => {
+      const previous = clients.find((c) => c.id === clientIdToUpdate)?.sheet_tab ?? null
+      const next = rawValue.trim() || null
+      setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, sheet_tab: next } : c)))
+      const { error } = await supabase.from('clients').update({ sheet_tab: next }).eq('id', clientIdToUpdate)
+      if (error) {
+        setClients((prev) => prev.map((c) => (c.id === clientIdToUpdate ? { ...c, sheet_tab: previous } : c)))
+        setGlobalNotice({
+          type: 'error',
+          text: /sheet_tab/i.test(error.message)
+            ? "Couldn't save the tab name — the database hasn't been updated for Google Sheet sync tabs yet (see README → Google Sheet sync)."
+            : `Couldn't save the tab name: ${error.message}`,
         })
       }
     },
@@ -679,37 +784,34 @@ export default function App() {
     [visibleWeeks]
   )
 
-  // Which calendar month the budget card is showing ("YYYY-MM"), independent
-  // of the selected week -- a client's budget is a monthly figure, so it gets
-  // its own stepper rather than following whichever week happens to be open.
-  const currentMonthKey = useMemo(() => new Date().toISOString().slice(0, 7), [])
-  const [budgetMonth, setBudgetMonth] = useState(currentMonthKey)
-  const shiftBudgetMonth = (delta) => {
-    setBudgetMonth((prev) => {
-      const [y, m] = prev.split('-').map(Number)
-      const d = new Date(y, m - 1 + delta, 1)
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    })
-  }
-
   const scopedClient = scopedClientId ? clients.find((c) => c.id === scopedClientId) : null
 
-  // Hours used by the scoped client in the budget month -- from the full
-  // weeks/tasks state (not visibleWeeks), since a client link already loads
-  // only that client's data, while the admin "Viewing" filter still needs
-  // scoping here explicitly to a single client + single month.
-  const budgetHoursUsed = useMemo(() => {
+  // Lifetime hours bought for the scoped client -- summed from the purchase
+  // ledger, compared against grandTotal (all-time hours logged), not a
+  // calendar-month slice: matches the real Sheet's own running-balance column.
+  const hoursBoughtToDate = useMemo(() => {
     if (!scopedClientId) return 0
-    const monthWeekIds = new Set(
-      weeks.filter((w) => w.client_id === scopedClientId && w.week_start.slice(0, 7) === budgetMonth).map((w) => w.id)
-    )
-    if (monthWeekIds.size === 0) return 0
-    let sum = 0
-    for (const t of tasks) {
-      if (monthWeekIds.has(t.week_id)) sum += Number(t.hours || 0)
+    return purchases
+      .filter((p) => p.client_id === scopedClientId)
+      .reduce((sum, p) => sum + Number(p.hours || 0), 0)
+  }, [purchases, scopedClientId])
+
+  const scopedClientPurchases = useMemo(() => {
+    if (!scopedClientId) return []
+    return purchases
+      .filter((p) => p.client_id === scopedClientId)
+      .slice()
+      .sort((a, b) => (a.purchased_on < b.purchased_on ? 1 : a.purchased_on > b.purchased_on ? -1 : 0))
+  }, [purchases, scopedClientId])
+
+  // Per-client lifetime-bought totals, for the Clients panel's glance figure.
+  const purchaseTotals = useMemo(() => {
+    const totals = new Map()
+    for (const p of purchases) {
+      totals.set(p.client_id, (totals.get(p.client_id) || 0) + Number(p.hours || 0))
     }
-    return sum
-  }, [weeks, tasks, scopedClientId, budgetMonth])
+    return totals
+  }, [purchases])
 
   const currentWeekStart = useMemo(() => todayAsWeekStart(), [])
 
@@ -740,6 +842,7 @@ export default function App() {
   )
   const selectedWeek =
     (selectedWeekId && sortedWeeks.find((w) => w.id === selectedWeekId)) || currentWeek
+
   const selectedIndex = selectedWeek ? sortedWeeks.findIndex((w) => w.id === selectedWeek.id) : -1
   // "Previous" steps back in time (further down the newest-first list).
   const olderWeek = selectedIndex >= 0 ? sortedWeeks[selectedIndex + 1] : undefined
@@ -886,7 +989,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-border bg-card sm:h-16">
+      <header className="sticky top-0 z-10 border-b border-border bg-card shadow-[var(--elev-1)] transition-colors duration-200 sm:h-16">
         <div className="flex h-full items-center justify-between gap-4 px-4 py-3 max-sm:flex-col max-sm:items-stretch sm:px-6 sm:py-0">
           <div className="flex min-w-0 flex-none items-center gap-3.5">
             <img className="h-8 w-auto flex-none" src="/Logo-1.png" alt="WordOut" />
@@ -898,27 +1001,37 @@ export default function App() {
               </span>
             </div>
           </div>
-          <div className="flex flex-none items-center gap-1.5 max-sm:flex-wrap">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2.5">
             {!clientId && <ViewSwitcher clients={clients} value={viewScope} onChange={switchScope} />}
+
             {!clientId && (
-              <Button variant="ghost" title="Clients" onClick={() => setClientsPanelOpen((v) => !v)}>
-                <Users size={18} aria-hidden="true" /> <span className="hidden sm:inline">Clients</span>
-              </Button>
+              <>
+                <span className="h-7 w-px flex-none bg-border max-sm:hidden" aria-hidden="true" />
+                <div className="flex items-center gap-1.5">
+                  <Button variant="outline" title="Clients" onClick={() => setClientsPanelOpen((v) => !v)}>
+                    <Users size={18} aria-hidden="true" /> <span className="hidden sm:inline">Clients</span>
+                  </Button>
+                  <Button variant="outline" title="Weekly report" onClick={() => setReportsPanelOpen((v) => !v)}>
+                    <Mail size={18} aria-hidden="true" /> <span className="hidden sm:inline">Reports</span>
+                  </Button>
+                </div>
+              </>
             )}
-            {!clientId && (
-              <Button variant="ghost" title="Weekly report" onClick={() => setReportsPanelOpen((v) => !v)}>
-                <Mail size={18} aria-hidden="true" /> <span className="hidden sm:inline">Reports</span>
-              </Button>
-            )}
-            <input
-              type="month"
-              aria-label="Filter export by month"
-              title="Limit the export to one month"
-              value={exportMonth}
-              onChange={(e) => setExportMonth(e.target.value)}
-              className="h-10 min-w-0 rounded-md border border-border bg-transparent px-2.5 text-sm text-muted-foreground outline-none transition-colors hover:border-muted-foreground max-sm:flex-1"
-            />
-            <ExportMenu disabled={filteredExportRows.length === 0} onExportXlsx={exportXlsx} onExportCsv={exportCsv} />
+
+            {!clientId && <span className="h-7 w-px flex-none bg-border max-sm:hidden" aria-hidden="true" />}
+            <div className="flex items-center gap-1.5 max-sm:w-full">
+              <input
+                type="month"
+                aria-label="Filter export by month"
+                title="Limit the export to one month"
+                value={exportMonth}
+                onChange={(e) => setExportMonth(e.target.value)}
+                className="h-10 min-w-0 rounded-md border border-border bg-transparent px-2.5 text-sm text-muted-foreground outline-none transition-colors hover:border-muted-foreground max-sm:flex-1"
+              />
+              <ExportMenu disabled={filteredExportRows.length === 0} onExportXlsx={exportXlsx} onExportCsv={exportCsv} />
+            </div>
+
+            <span className="h-7 w-px flex-none bg-border max-sm:hidden" aria-hidden="true" />
             <Button
               variant="ghost"
               size="icon"
@@ -942,6 +1055,10 @@ export default function App() {
           onSelect={setSelectedWeekId}
           clients={clients}
           scopeName={scopeName}
+          onAddWeek={addWeek}
+          addingWeek={addingWeek}
+          addWeekLabel={addWeekLabel}
+          readOnly={readOnly}
         />
 
         <main className="w-full min-w-0 flex-1 px-4 py-7 sm:px-8">
@@ -963,10 +1080,12 @@ export default function App() {
             <ClientsPanel
               clients={clients}
               clientStats={clientStats}
+              purchaseTotals={purchaseTotals}
               onAddClient={addClient}
               onDeleteClient={deleteClient}
               onUpdateClientEmail={updateClientEmail}
-              onUpdateClientBudget={updateClientBudget}
+              onUpdateClientSheetId={updateClientSheetId}
+              onUpdateClientSheetTab={updateClientSheetTab}
               onViewClient={(id) => {
                 switchScope(id)
                 setClientsPanelOpen(false)
@@ -982,36 +1101,24 @@ export default function App() {
             />
           )}
 
+          {/* For a single client in view, swaps "Weeks logged"/"Hours total"
+              for "Hours used"/"Hours left" -- the number that actually
+              matters here -- so it's visible without scrolling to the Hours
+              bought card, which in turn no longer repeats it. */}
           <StatsBar
+            mode={scopedClient ? 'client' : 'default'}
             weeksCount={visibleWeeks.length}
             tasksOpen={taskStats.tasksOpen}
             tasksDone={taskStats.tasksDone}
             hoursTotal={grandTotal}
+            hoursUsed={grandTotal}
+            hoursBought={hoursBoughtToDate}
+            purchases={scopedClientPurchases}
           />
-
-          {scopedClient && (
-            <BudgetCard
-              clientName={scopedClient.name}
-              monthlyHours={scopedClient.monthly_hours}
-              hoursUsed={budgetHoursUsed}
-              monthKey={budgetMonth}
-              isCurrentMonth={budgetMonth === currentMonthKey}
-              onPrevMonth={() => shiftBudgetMonth(-1)}
-              onNextMonth={() => shiftBudgetMonth(1)}
-              onThisMonth={() => setBudgetMonth(currentMonthKey)}
-              onUpdateBudget={!readOnly ? (value) => updateClientBudget(scopedClientId, value) : null}
-            />
-          )}
-
-          <TrendChart data={trendData} currentWeekStart={currentWeekStart} />
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Totals projectTotals={projectTotals} grandTotal={grandTotal} />
-            <StatusBreakdown counts={statusCounts} total={visibleTasks.length} />
-          </div>
 
           {selectedWeek ? (
             <WeekCard
+              key={selectedWeek.id}
               week={selectedWeek}
               tasks={tasksByWeek.get(selectedWeek.id) || []}
               savingIds={savingIds}
@@ -1019,10 +1126,11 @@ export default function App() {
               onUpdateTaskField={updateTaskField}
               onAddTask={addTask}
               onDeleteTask={deleteTask}
+              onVerifyTask={verifyTask}
               onUpdateWeekField={updateWeekField}
               onDeleteWeek={deleteWeek}
               onFlushTask={flushTaskSave}
-              clients={!clientId ? clients : null}
+              clients={!scopedClientId ? clients : null}
               onMoveWeek={moveWeek}
               onPrevWeek={olderWeek ? () => setSelectedWeekId(olderWeek.id) : null}
               onNextWeek={newerWeek ? () => setSelectedWeekId(newerWeek.id) : null}
@@ -1030,7 +1138,7 @@ export default function App() {
               readOnly={readOnly}
             />
           ) : (
-            <div className="rounded-lg border border-border bg-card p-10 text-center">
+            <div className="rounded-xl border border-border bg-card p-10 text-center shadow-[var(--elev-1)] transition-colors duration-200">
               <p className="text-xs font-medium text-muted-foreground">Week of</p>
               <h2 className="my-1 text-xl font-medium">{formatWeekStart(currentWeekStart, { year: false })}</h2>
               <p className="mb-4 text-muted-foreground">
@@ -1049,16 +1157,24 @@ export default function App() {
             </div>
           )}
 
-          {selectedWeek && !readOnly && (
-            <Button variant="outline" className="mx-auto mt-5 flex" onClick={addWeek} disabled={addingWeek}>
-              {addingWeek ? (
-                <Loader2 size={18} className="animate-spin" aria-hidden="true" />
-              ) : (
-                <Plus size={18} aria-hidden="true" />
-              )}
-              {addWeekLabel}
-            </Button>
-          )}
+          <div className={cn('mt-4 grid gap-4', scopedClient && 'lg:grid-cols-2')}>
+            {scopedClient && (
+              <BudgetCard
+                clientName={scopedClient.name}
+                hoursBought={hoursBoughtToDate}
+                hoursUsed={grandTotal}
+                purchases={scopedClientPurchases}
+                onAddPurchase={!readOnly ? (values) => addHoursPurchase(scopedClientId, values) : null}
+                onDeletePurchase={!readOnly ? (purchaseId) => deleteHoursPurchase(purchaseId) : null}
+              />
+            )}
+            <TrendChart data={trendData} currentWeekStart={currentWeekStart} hoursBought={scopedClient ? hoursBoughtToDate : null} />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Totals projectTotals={projectTotals} grandTotal={grandTotal} />
+            <StatusBreakdown counts={statusCounts} total={visibleTasks.length} />
+          </div>
         </main>
       </div>
     </div>
