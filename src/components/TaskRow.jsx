@@ -79,7 +79,7 @@ export default function TaskRow({ task, saving, error, onFieldChange, onFlush, o
         <Select value={task.status} disabled={readOnly} onValueChange={handleStatusChange}>
           <SelectTrigger
             className={cn(
-              'w-fit justify-start gap-1.5 rounded-full border-none px-3 py-1 font-semibold duration-200 hover:not-disabled:brightness-95',
+              'w-fit justify-start gap-1.5 rounded-full border-none px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide duration-200 hover:not-disabled:brightness-95',
               STATUS_PILL[task.status],
               readOnly && 'disabled:opacity-100 disabled:hover:brightness-100'
             )}

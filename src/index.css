@@ -114,8 +114,12 @@
 
   /* Neutrals shift warm here (not cool blue-gray) to match the actual site
      -- its panel/border/secondary-text colors (#F6F4F1, #DDDBD8, #7A7A74)
-     lean warm, not blue-tinted. text-primary stays navy either way. */
-  --bg: #ffffff;
+     lean warm, not blue-tinted. text-primary stays navy either way.
+     --bg is a soft off-white, distinct from --card-bg's pure white -- gives
+     every card real separation from the page canvas (border alone was too
+     subtle), matching a clean dashboard look without touching the brand's
+     actual accent color. */
+  --bg: #f7f6f4;
   --card-bg: #ffffff;
   --panel-bg: #f6f4f1;
   --pane-bg: #f9f8f6;

@@ -82,10 +82,17 @@ export default function StatsBar({
             t.danger ? 'border-destructive/30 bg-destructive/10' : 'border-border bg-card'
           )}
         >
-          <p className={cn('text-xs font-medium', t.danger ? 'text-destructive' : 'text-muted-foreground')}>{t.label}</p>
+          <p
+            className={cn(
+              'text-[0.7rem] font-semibold uppercase tracking-wide',
+              t.danger ? 'text-destructive' : 'text-muted-foreground'
+            )}
+          >
+            {t.label}
+          </p>
           <span
             className={cn(
-              'inline-block text-[1.85rem] font-medium leading-tight text-foreground transition-transform duration-200 ease-out',
+              'inline-block text-[1.85rem] font-bold leading-tight text-foreground transition-transform duration-200 ease-out',
               t.tone,
               t.bump && 'scale-110'
             )}
@@ -93,7 +100,7 @@ export default function StatsBar({
             {t.value}
           </span>
           {t.sub && (
-            <p className={cn('mt-0.5 text-xs font-medium', t.danger ? 'text-destructive' : 'text-muted-foreground')}>
+            <p className={cn('mt-0.5 text-xs font-normal', t.danger ? 'text-destructive' : 'text-muted-foreground')}>
               {t.sub}
             </p>
           )}

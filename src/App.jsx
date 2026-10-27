@@ -989,7 +989,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-border bg-card shadow-[var(--elev-1)] transition-colors duration-200 sm:h-16">
+      <header className="sticky top-0 z-10 border-b border-border bg-card shadow-[var(--elev-1)] transition-colors duration-200 sm:min-h-16">
         <div className="flex h-full items-center justify-between gap-4 px-4 py-3 max-sm:flex-col max-sm:items-stretch sm:px-6 sm:py-0">
           <div className="flex min-w-0 flex-none items-center gap-3.5">
             <img className="h-8 w-auto flex-none" src="/Logo-1.png" alt="WordOut" />

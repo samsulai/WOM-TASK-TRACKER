@@ -120,11 +120,11 @@ export default function WeekCard({
         <table className="task-table w-full border-collapse text-sm max-sm:block">
           <thead className="max-sm:hidden">
             <tr className="border-b border-border bg-muted/50">
-              <th className="p-2 pb-2.5 pl-3.5 text-left text-xs font-medium text-muted-foreground">Project</th>
-              <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Date</th>
-              <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Status</th>
-              <th className="p-2 pb-2.5 pr-3.5 text-right text-xs font-medium text-muted-foreground">Hours</th>
-              <th className="p-2 pb-2.5 text-left text-xs font-medium text-muted-foreground">Done</th>
+              <th className="p-2 pb-2.5 pl-3.5 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">Project</th>
+              <th className="p-2 pb-2.5 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">Date</th>
+              <th className="p-2 pb-2.5 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
+              <th className="p-2 pb-2.5 pr-3.5 text-right text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">Hours</th>
+              <th className="p-2 pb-2.5 text-left text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">Done</th>
               <th></th>
             </tr>
           </thead>
