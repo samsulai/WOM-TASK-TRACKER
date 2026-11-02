@@ -73,21 +73,10 @@ export default function StatsBar({
         ]
 
   return (
-    <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="mb-4 grid grid-cols-2 divide-x divide-y divide-border/70 overflow-hidden rounded-xl border border-border bg-card shadow-[var(--elev-1)] transition-colors duration-200 sm:grid-cols-4 sm:divide-y-0">
       {tiles.map((t) => (
-        <div
-          key={t.label}
-          className={cn(
-            'rounded-xl border p-4 shadow-[var(--elev-1)] transition-colors duration-200',
-            t.danger ? 'border-destructive/30 bg-destructive/10' : 'border-border bg-card'
-          )}
-        >
-          <p
-            className={cn(
-              'text-[0.7rem] font-semibold uppercase tracking-wide',
-              t.danger ? 'text-destructive' : 'text-muted-foreground'
-            )}
-          >
+        <div key={t.label} className="p-4">
+          <p className={cn('text-[0.7rem] font-semibold uppercase tracking-wide', t.danger ? 'text-destructive' : 'text-muted-foreground')}>
             {t.label}
           </p>
           <span

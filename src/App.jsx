@@ -1026,7 +1026,7 @@ export default function App() {
                 title="Limit the export to one month"
                 value={exportMonth}
                 onChange={(e) => setExportMonth(e.target.value)}
-                className="h-10 min-w-0 rounded-md border border-border bg-transparent px-2.5 text-sm text-muted-foreground outline-none transition-colors hover:border-muted-foreground max-sm:flex-1"
+                className="h-10 min-w-0 rounded-md border border-border bg-transparent px-2.5 text-sm text-muted-foreground outline-none transition-colors hover:border-muted-foreground max-sm:flex-1 [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:transition-opacity hover:[&::-webkit-calendar-picker-indicator]:opacity-90 dark:[&::-webkit-calendar-picker-indicator]:invert"
               />
               <ExportMenu disabled={filteredExportRows.length === 0} onExportXlsx={exportXlsx} onExportCsv={exportCsv} />
             </div>

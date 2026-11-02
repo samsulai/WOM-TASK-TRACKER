@@ -26,7 +26,7 @@ export default function WeekNav({
   }
 
   return (
-    <aside className="sticky top-16 h-[calc(100vh-64px)] w-[272px] flex-none overflow-y-auto border-r border-border bg-sidebar p-5 py-5 max-[860px]:static max-[860px]:order-2 max-[860px]:h-auto max-[860px]:w-full max-[860px]:border-r-0 max-[860px]:border-t">
+    <aside className="sticky top-16 h-[calc(100vh-64px)] w-[272px] flex-none overflow-y-auto border-r border-border bg-sidebar px-5 pb-5 pt-7 max-[860px]:static max-[860px]:order-2 max-[860px]:h-auto max-[860px]:w-full max-[860px]:border-r-0 max-[860px]:border-t">
       <div className="flex items-center justify-between gap-2 px-3">
         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Weeks</p>
         {scopeName && (
@@ -53,15 +53,14 @@ export default function WeekNav({
                 <span className="truncate">{week.label || formatWeekStart(week.week_start, { year: false })}</span>
                 <span className="flex min-w-0 items-center gap-1.5">
                   {isCurrent && <span className="flex-none text-xs font-semibold text-primary">This week</span>}
+                  {isCurrent && showOwnerTag && <span className="flex-none text-muted-foreground/40">·</span>}
                   {showOwnerTag && (
-                    <span
-                      title={ownerLabel(week)}
-                      className={cn(
-                        'min-w-0 truncate rounded-sm bg-muted px-2 py-px text-xs font-medium text-muted-foreground',
-                        week.client_id && 'bg-primary/10 text-primary'
-                      )}
-                    >
-                      {ownerLabel(week)}
+                    <span title={ownerLabel(week)} className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <span
+                        className={cn('size-1.5 flex-none rounded-full', week.client_id ? 'bg-primary' : 'bg-muted-foreground/50')}
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">{ownerLabel(week)}</span>
                     </span>
                   )}
                 </span>

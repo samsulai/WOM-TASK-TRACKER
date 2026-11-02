@@ -9,6 +9,10 @@ function SelectGroup(props) {
   return <SelectPrimitive.Group data-slot="select-group" {...props} />
 }
 function SelectValue(props) {
+  // Radix's Select.Value deliberately drops any className passed to it
+  // (see its source), so truncating long values has to happen on a
+  // wrapper around <SelectValue /> at the call site instead -- see
+  // ViewSwitcher for an example.
   return <SelectPrimitive.Value data-slot="select-value" {...props} />
 }
 
@@ -40,7 +44,7 @@ function SelectContent({ className, children, position = 'popper', ...props }) {
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          'relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg',
+          'relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] max-w-[calc(100vw-2rem)] overflow-y-auto overflow-x-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           position === 'popper' &&
             'data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1',
@@ -74,7 +78,7 @@ function SelectItem({ className, children, ...props }) {
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground",
+        "relative flex w-full min-w-0 cursor-pointer select-none items-center gap-2 rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground",
         className
       )}
       {...props}
@@ -84,7 +88,13 @@ function SelectItem({ className, children, ...props }) {
           <Check className="size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      {/* A long value (e.g. a client name) would otherwise force the whole
+          popper wider than the viewport -- ItemText itself can't carry a
+          className (Radix drops it), so the truncate has to live on this
+          wrapping span instead. */}
+      <SelectPrimitive.ItemText>
+        <span className="block min-w-0 truncate">{children}</span>
+      </SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   )
 }

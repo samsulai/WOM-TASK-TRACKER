@@ -90,7 +90,7 @@ export default function WeekCard({
             value={week.week_start}
             disabled={readOnly}
             onChange={(e) => onUpdateWeekField(week.id, { week_start: e.target.value })}
-            className="block w-full max-w-[220px] rounded-md border-none bg-transparent px-1.5 py-0.5 text-xl font-medium text-foreground outline-none transition-colors hover:not-disabled:bg-accent focus-visible:not-disabled:bg-accent disabled:opacity-100"
+            className="block w-full max-w-[220px] rounded-md border-none bg-transparent px-1.5 py-0.5 text-xl font-medium text-foreground outline-none transition-colors hover:not-disabled:bg-accent focus-visible:not-disabled:bg-accent disabled:opacity-100 [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:transition-opacity hover:[&::-webkit-calendar-picker-indicator]:opacity-90 dark:[&::-webkit-calendar-picker-indicator]:invert"
           />
           <input
             type="text"
@@ -189,6 +189,12 @@ export default function WeekCard({
 function WeekOwner({ week, clients, onMove }) {
   const ownerName = week.client_id ? clients.find((c) => c.id === week.client_id)?.name || 'Client' : 'Internal'
   const options = [{ id: null, name: 'Internal (no client)' }, ...clients]
+  // Same fix as ViewSwitcher's tooltip: the trigger stays hovered while its
+  // dropdown is open, so the tooltip has to be forced shut for as long as
+  // the dropdown is open, not just closed once, or a stray hover
+  // re-evaluation flips it back on top of the open menu.
+  const [tooltipOpen, setTooltipOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -200,8 +206,12 @@ function WeekOwner({ week, clients, onMove }) {
       >
         {ownerName}
       </span>
-      <DropdownMenu>
-        <Tooltip text="Reassigns this whole week to a different client (or Internal). Doesn't move or change any tasks.">
+      <DropdownMenu onOpenChange={setMenuOpen}>
+        <Tooltip
+          text="Reassigns this whole week to a different client (or Internal). Doesn't move or change any tasks."
+          open={menuOpen ? false : tooltipOpen}
+          onOpenChange={(open) => !menuOpen && setTooltipOpen(open)}
+        >
           <DropdownMenuTrigger asChild>
             <button
               type="button"

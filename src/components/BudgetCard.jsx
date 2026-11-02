@@ -44,7 +44,7 @@ function AddPurchaseForm({ clientName, onAddPurchase, onDone }) {
           type="date"
           value={purchasedOn}
           onChange={(e) => setPurchasedOn(e.target.value)}
-          className="h-9 rounded-md border border-border bg-transparent px-2.5 text-sm text-foreground outline-none transition-colors hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="h-9 rounded-md border border-border bg-transparent px-2.5 text-sm text-foreground outline-none transition-colors hover:border-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/40 [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:transition-opacity hover:[&::-webkit-calendar-picker-indicator]:opacity-90 dark:[&::-webkit-calendar-picker-indicator]:invert"
         />
       </label>
       <label className="flex flex-col gap-1">
