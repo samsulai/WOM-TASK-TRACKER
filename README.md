@@ -353,12 +353,12 @@ computed from the database directly, never from these cells.
 Column E gets the live running balance (hours bought so far minus hours
 used so far) — computed straight from the app's own clean numbers, never a
 spreadsheet formula, so it's never thrown off by a historical row's number
-format. **It gets the same day-fraction/Duration treatment as C/D, but only
-while the balance is non-negative** — a client still within budget sees
-`HH:MM:SS` same as C/D; the moment they go over budget, that one row falls
-back to a plain negative number instead, since Duration format can't
-represent a negative duration cleanly (see
-`hoursLeftValue`/`ensureHoursLeftFormat` in the Edge Function). Only one row
+format. **It gets the same day-fraction/Duration treatment as C/D, always**
+— a client within budget reads `HH:MM:SS` same as C/D, and a client over
+budget reads the same format with a leading minus sign (e.g. `-2:00:00`),
+since Google Sheets' `[hh]:mm:ss` elapsed-time format displays a negative
+value fine (see `hoursLeftValue`/`ensureHoursLeftFormat` in the Edge
+Function). Only one row
 ever shows a value in E at a time — whichever row is currently last —
 matching how a lead's own hand-maintained ledger places a single running
 total at the bottom; every sync clears E everywhere else first. **If a
@@ -496,10 +496,9 @@ above.
   hours used, computed from the app's own numbers) is written onto just the
   current last row — so it always reads as one single, correct running
   total, no matter how the row above it happened to be formatted. That row's
-  number FORMAT is also reset on every sync, to Duration or plain NUMBER
-  depending on whether the balance is currently negative — so a client
-  crossing over budget (or coming back under it) always gets the right
-  format for their new balance, not whatever was left over from before.
+  number FORMAT is also reset to Duration on every sync, whether the
+  balance is positive or negative — an over-budget balance just reads with
+  a leading minus sign (e.g. `-2:00:00`), same format either way.
 - **A task only syncs (and only counts toward E) once it's "verified".**
   Every task created in the app is verified by default; only a task logged
   via Slack (`/log-task`) starts out unverified and is invisible to sync

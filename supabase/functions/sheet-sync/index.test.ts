@@ -199,21 +199,18 @@ Deno.test('buildHoursLeftData: clears further than writeRow when a stale total s
   ])
 })
 
-Deno.test('buildHoursLeftData: a negative (over-budget) balance is written as a plain number, not a day-fraction', () => {
+Deno.test('buildHoursLeftData: a negative (over-budget) balance is still written as a day-fraction', () => {
   const data = buildHoursLeftData('Sheet1', 2, 2, -10)
   assertEquals(data, [
     { range: "'Sheet1'!E2:E2", values: [['']] },
-    { range: "'Sheet1'!E2", values: [[-10]] },
+    { range: "'Sheet1'!E2", values: [[-10 / 24]] },
   ])
 })
 
-Deno.test('hoursLeftValue: non-negative converts to a day-fraction', () => {
+Deno.test('hoursLeftValue: converts to a day-fraction regardless of sign', () => {
   assertEquals(hoursLeftValue(14), 14 / 24)
   assertEquals(hoursLeftValue(0), 0)
-})
-
-Deno.test('hoursLeftValue: negative stays a plain number', () => {
-  assertEquals(hoursLeftValue(-10), -10)
+  assertEquals(hoursLeftValue(-10), -10 / 24)
 })
 
 Deno.test('buildHoursLeftData: no records left -- clears but writes nothing', () => {

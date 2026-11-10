@@ -49,11 +49,11 @@
 // reason it always did -- it keeps any row this sync doesn't own exactly
 // as its own author left it, whatever convention they used.
 //
-// Column E gets the SAME day-fraction/Duration treatment as C/D, but only
-// while the balance is non-negative -- it's the one column that can go
-// negative (over budget), and Duration format can't represent that
-// cleanly, so an over-budget balance falls back to a plain negative number
-// instead (see hoursLeftValue/ensureHoursLeftFormat).
+// Column E gets the SAME day-fraction/Duration treatment as C/D, always --
+// it's the one column that can go negative (over budget), but Google
+// Sheets' `[hh]:mm:ss` elapsed-time format displays a negative value fine
+// (e.g. "-2:00:00"), so there's no special case needed (see
+// hoursLeftValue/ensureHoursLeftFormat).
 //
 // A task is only ever considered here (synced, and counted toward E's
 // balance) once it's "verified" -- see loadClientTasks. Every task created
@@ -256,17 +256,15 @@ export function hoursLeftFor(records: SyncRecord[]): number {
   return left
 }
 
-// "Hours left" gets the day-fraction/Duration treatment ONLY when it's
-// non-negative. Unlike C/D (always a positive duration someone typed in),
-// this column can go negative once a client is over budget, and Google
-// Sheets' Duration format can't represent a negative duration cleanly --
-// so the common case (still within budget) reads as HH:MM:SS like C/D,
-// while an over-budget balance falls back to a plain negative number
-// rather than displaying something broken. See ensureHoursLeftFormat for
-// the matching cell-format half of this (both have to travel together,
-// same as hoursToDayFraction/ensureDurationFormat do for C/D).
+// "Hours left" gets the same day-fraction/Duration treatment as C/D
+// regardless of sign -- Google Sheets' `[hh]:mm:ss` elapsed-time format
+// displays a negative duration fine (e.g. "-2:00:00"), prefixed with a
+// minus sign, unlike Excel's default date system. See
+// ensureHoursLeftFormat for the matching cell-format half of this (both
+// have to travel together, same as hoursToDayFraction/ensureDurationFormat
+// do for C/D).
 export function hoursLeftValue(hoursLeft: number): number {
-  return hoursLeft >= 0 ? hoursToDayFraction(hoursLeft) : hoursLeft
+  return hoursToDayFraction(hoursLeft)
 }
 
 // Clears column E (Total Hours Left) from row 2 through `clearUpToRow`,
@@ -573,8 +571,8 @@ export function rowRanges(rows: number[]): { start: number; end: number }[] {
 // a day-fraction value only displays correctly as hours when the cell's
 // format says so, so the two always have to be applied together. Scoped to
 // C/D only -- E (Total Hours Left) is handled separately, by
-// ensureHoursLeftFormat below, since its format depends on whether the
-// balance is negative, not just on which row it's in.
+// ensureHoursLeftFormat below, since it's a single specific row rather
+// than a set of rows being written this sync.
 async function ensureDurationFormat(token: string, sheetId: string, gridId: number, rows: number[]) {
   if (rows.length === 0) return
   const requests = rowRanges(rows).map(({ start, end }) => ({
@@ -594,22 +592,15 @@ async function ensureDurationFormat(token: string, sheetId: string, gridId: numb
 }
 
 // Mirrors ensureDurationFormat but for the single row currently holding
-// "Hours left" (E) -- Duration format ([hh]:mm:ss) when the balance is
-// non-negative, matching C/D's convention; plain NUMBER when negative
-// (over budget), since Duration format can't represent that cleanly. Pairs
-// with hoursLeftValue the same way ensureDurationFormat pairs with
-// hoursToDayFraction: the stored value and the cell's format always have
-// to agree, or the day-fraction trick just shows a confusing raw decimal.
-async function ensureHoursLeftFormat(
-  token: string,
-  sheetId: string,
-  gridId: number,
-  writeRow: number | null,
-  hoursLeft: number
-) {
+// "Hours left" (E) -- always Duration format ([hh]:mm:ss), matching C/D's
+// convention, whether the balance is positive or negative (an over-budget
+// client reads e.g. "-2:00:00"). Pairs with hoursLeftValue the same way
+// ensureDurationFormat pairs with hoursToDayFraction: the stored value and
+// the cell's format always have to agree, or the day-fraction trick just
+// shows a confusing raw decimal.
+async function ensureHoursLeftFormat(token: string, sheetId: string, gridId: number, writeRow: number | null) {
   if (writeRow === null) return
-  const numberFormat =
-    hoursLeft >= 0 ? { type: 'TIME', pattern: '[hh]:mm:ss' } : { type: 'NUMBER', pattern: '0.##' }
+  const numberFormat = { type: 'TIME', pattern: '[hh]:mm:ss' }
   const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -667,7 +658,7 @@ async function syncClient(
       ? getSheetGridId(token, sheetId, tab).then((gridId) =>
           Promise.all([
             ensureDurationFormat(token, sheetId, gridId, rowsToFormat),
-            ensureHoursLeftFormat(token, sheetId, gridId, newLastRow, hoursLeft),
+            ensureHoursLeftFormat(token, sheetId, gridId, newLastRow),
           ])
         )
       : Promise.resolve()
