@@ -116,15 +116,58 @@ login yet, the URL is what grants access.
   next to "Belongs to" on the week card — that's the only control that
   changes ownership. A move is blocked if the destination already has a week
   starting the same day.
-- **This is a capability link, not real access control.** Like the rest of
-  this app (see the RLS trade-off note in `supabase/schema.sql`), every table
-  is readable/writable by anyone with the anon key — the client-scoped URL
-  filters what the *app* shows, but doesn't stop someone from querying the
-  database directly. That's an acceptable trade-off for organizing views for
-  trusted clients, but it is **not** confidentiality between clients who
-  shouldn't be able to see each other's data even if they tried. That needs
-  real per-client accounts (Supabase Auth + RLS keyed to the logged-in
-  user) — a meaningfully bigger feature than this app currently has.
+- **This is a capability link, not real access control.** Every table is
+  still **readable** by anyone with the anon key (see the RLS trade-off
+  note in `supabase/schema.sql`) — the client-scoped URL filters what the
+  *app* shows, but doesn't stop someone from querying the database
+  directly for read access. Writes are a different story now — see
+  "Admin login" below. Read access being open is an acceptable trade-off
+  for organizing views for trusted clients, but it is **not**
+  confidentiality between clients who shouldn't be able to see each
+  other's data even if they tried. That needs real per-client accounts
+  (Supabase Auth + RLS keyed to the logged-in user) — a meaningfully
+  bigger feature than this app currently has.
+
+## Admin login
+
+- Opening your own link (no `?client=` in the URL) now requires signing in
+  — a client's link still needs no account at all, exactly as above.
+  Signing out (the icon next to the theme toggle) drops you back to the
+  login screen.
+- **This is enforced two ways, not just a UI screen.** `AuthGate.jsx`
+  blocks the admin view in the browser without a session, *and*
+  `supabase/migrations/2026-11-10-require-auth-for-writes.sql` requires
+  `auth.role() = 'authenticated'` for every insert/update/delete on
+  `clients`, `weeks`, `tasks`, and `hours_purchases` — so even someone
+  who bypassed the UI and called the database directly with the anon key
+  couldn't create, edit, or delete anything without being logged in.
+  Reads stay open (see "Client links" above) — this only ever gates
+  writes and the admin UI itself.
+- **Slack (`/log-task`) and Google Sheet sync are unaffected.** Both Edge
+  Functions already write using the service-role key, which bypasses RLS
+  entirely regardless of these policies.
+
+### One-time setup
+
+1. **Database.** Run
+   [`supabase/migrations/2026-11-10-require-auth-for-writes.sql`](supabase/migrations/2026-11-10-require-auth-for-writes.sql)
+   in the SQL Editor.
+2. **Create your admin account.** Supabase dashboard → **Authentication →
+   Users → Add user** — set your own email and a password. There's no
+   sign-up form in the app itself; accounts are only ever created here, by
+   hand.
+3. **Turn off public sign-ups.** Supabase dashboard → **Authentication →
+   Settings** → disable "Allow new users to sign up." Without this, anyone
+   who found the login screen could create their own account and pass the
+   `auth.role() = 'authenticated'` check above — the app never exposes a
+   sign-up form, but the API would still accept one unless this is off.
+4. Add more admin accounts the same way (step 2) whenever another staff
+   member needs dashboard access, not just Slack.
+
+- **Rollback:** the migration file's header comment has the exact
+  statements to restore the original fully-open write policies. Deleting
+  your Supabase Auth user(s) has no other effect — it doesn't touch any
+  app data.
 
 ## How live sync + concurrent edits are handled
 

@@ -12,7 +12,7 @@ import ExportMenu from './components/ExportMenu'
 import BudgetCard from './components/BudgetCard'
 import TrendChart from './components/TrendChart'
 import { buildXlsxBlob } from './exportXlsx'
-import { Loader2, Mail, Moon, Plus, Sun, Users } from 'lucide-react'
+import { Loader2, LogOut, Mail, Moon, Plus, Sun, Users } from 'lucide-react'
 import { formatHours, formatWeekStart } from './format'
 import { INTERNAL_SCOPE } from './scope'
 import { Button } from '@/components/ui/button'
@@ -1042,6 +1042,18 @@ export default function App() {
             >
               {theme === 'light' ? <Moon size={20} aria-hidden="true" /> : <Sun size={20} aria-hidden="true" />}
             </Button>
+            {!clientId && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                onClick={() => supabase.auth.signOut()}
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <LogOut size={20} aria-hidden="true" />
+              </Button>
+            )}
           </div>
         </div>
       </header>
