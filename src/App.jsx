@@ -15,6 +15,7 @@ import { buildXlsxBlob } from './exportXlsx'
 import { Loader2, LogOut, Mail, Moon, Plus, Sun, Users } from 'lucide-react'
 import { formatHours, formatWeekStart } from './format'
 import { INTERNAL_SCOPE } from './scope'
+import { getInitialTheme } from './theme'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -121,16 +122,6 @@ async function rolloverIncompleteTasks(weeksData, tasksData) {
   }
 
   return { weeks, tasks, movedCount }
-}
-
-function getInitialTheme() {
-  try {
-    const saved = localStorage.getItem('wtt-theme')
-    if (saved === 'light' || saved === 'dark') return saved
-  } catch {
-    // localStorage unavailable (private browsing, etc.) -- fall through
-  }
-  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
 }
 
 export default function App() {

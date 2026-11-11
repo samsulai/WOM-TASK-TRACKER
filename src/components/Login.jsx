@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Lock } from 'lucide-react'
 import { supabase } from '../supabaseClient'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -25,24 +24,24 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="flex-col items-start gap-1.5">
-          <div className="flex items-center gap-2 text-primary">
-            <Lock size={18} aria-hidden="true" />
-            <CardTitle>Admin sign in</CardTitle>
+    <div className="flex min-h-screen w-full items-center justify-center bg-background px-4 py-12">
+      <div className="w-full md:w-[480px]">
+        <Card className="p-8 md:p-10">
+          <div className="mb-8 flex flex-col items-center gap-2 text-center">
+            <h1 className="text-2xl font-bold text-foreground md:text-3xl">WordOut Admin</h1>
+            <p className="text-[15px] font-medium text-muted-foreground">Weekly Task Tracker</p>
           </div>
-          <CardDescription>Sign in to view or edit the Weekly Task Tracker.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-4">
+
+          <form onSubmit={onSubmit} className="flex w-full flex-col gap-5">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="login-email">Email</Label>
               <Input
                 id="login-email"
                 type="email"
+                placeholder="you@example.com"
                 autoComplete="email"
                 required
+                className="h-12 rounded-lg"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -52,19 +51,21 @@ export default function Login() {
               <Input
                 id="login-password"
                 type="password"
+                placeholder="Enter your password"
                 autoComplete="current-password"
                 required
+                className="h-12 rounded-lg"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" disabled={submitting} className="mt-1">
-              {submitting ? 'Signing in…' : 'Sign in'}
+            <Button type="submit" size="lg" disabled={submitting} className="mt-1 h-12 rounded-lg font-semibold">
+              {submitting ? 'Logging in…' : 'Log In'}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   )
 }

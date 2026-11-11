@@ -2,8 +2,8 @@
 // DOM) so the same layout can be reused when the weekly report email attaches
 // a spreadsheet.
 
-const HEADER = { fontWeight: 'bold', backgroundColor: '#14173a', textColor: '#ffffff' }
-const TOTAL = { fontWeight: 'bold', backgroundColor: '#eef2ff' }
+const HEADER = { fontWeight: 'bold', backgroundColor: '#121212', textColor: '#ffffff' }
+const TOTAL = { fontWeight: 'bold', backgroundColor: '#e6f2ff' }
 const HOURS_FORMAT = '0.00'
 
 const headerRow = (labels) => labels.map((value) => ({ value, ...HEADER }))

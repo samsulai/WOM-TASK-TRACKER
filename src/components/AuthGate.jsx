@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { getInitialTheme } from '../theme'
 import Login from './Login'
+
+// App.jsx applies the saved/preferred theme on its own mount -- but it
+// doesn't render at all while the login screen is up, so without this the
+// login screen would always render in the CSS's base (dark) theme
+// regardless of what's saved. Applied at module scope (not inside a
+// useEffect) so it runs before first paint, no flash of the wrong theme.
+document.documentElement.dataset.theme = getInitialTheme()
 
 // Gates the admin dashboard behind a Supabase Auth session -- but only the
 // admin dashboard. A client link (?client=<id> in the URL) is meant to be

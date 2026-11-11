@@ -5,10 +5,10 @@
 
 /* Maps shadcn/ui's conventional semantic names onto the brand CSS variables
    defined below -- so `bg-primary`, `text-muted-foreground`, etc. resolve to
-   the same real, already-tested brand colors (navy + #003dff, pulled from
-   wordoutmediaagency.com) and automatically follow the existing dark/light
-   `data-theme` switch, instead of introducing a second, parallel color
-   system. */
+   the same real brand colors (matching the Passu admin dashboard's palette
+   -- see "Brand palette" comment below) and automatically follow the
+   existing dark/light `data-theme` switch, instead of introducing a second,
+   parallel color system. */
 @theme inline {
   --font-sans: var(--font-body);
 
@@ -59,48 +59,51 @@
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --dur: 150ms;
 
-  /* Brand palette: navy #14173a + blue #003dff, #002fc4 on hover -- pulled
-     directly from wordoutmediaagency.com's own theme colors (its accent
-     blue is #003dff, not the slightly brighter #0169ff this app used
-     before). Everything below is derived from navy + this blue; green/red
-     stay status-only colors (Done / Blocked & destructive actions), never
-     UI chrome. */
-  --bg: #0d1030;
-  --card-bg: #14173a;
-  --panel-bg: #1c2050;
-  --border: #2b3070;
-  --border-soft: #1f2359;
-  --pane-bg: #14173a;
-  --text-primary: #f1f3ff;
-  --text-secondary: #a3a9d6;
-  --text-tertiary: #7a81b5;
+  /* Brand palette: near-black #121212 + blue #0072ff -- matches the Passu
+     admin dashboard's own brand colors (brand.dark / brand.blue in
+     passu-front's tailwind.config.ts, colorPrimary in its antd
+     ConfigProvider). green/red/orange below are Passu's brand.green/red/
+     orange, and stay status-only (Done / Blocked & destructive actions,
+     never UI chrome) same as before. Dark-mode tints of each accent are
+     brightened from Passu's literal values for contrast on a near-black
+     background -- Passu's own app doesn't have a branded dark mode to copy
+     these from. */
+  --bg: #121212;
+  --card-bg: #1a1a1a;
+  --panel-bg: #212121;
+  --border: #2e2e2e;
+  --border-soft: #262626;
+  --pane-bg: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #a8a8a8;
+  --text-tertiary: #898989;
 
-  --accent-blue: #003dff;
-  --accent-blue-text: #5981ff;
-  --accent-blue-dim: rgba(0, 61, 255, 0.18);
-  --accent-blue-border: rgba(0, 61, 255, 0.45);
-  --accent-blue-strong: rgba(0, 61, 255, 0.3);
-  --accent-green: #37d67a;
-  --accent-green-dim: rgba(55, 214, 122, 0.15);
-  --accent-green-border: rgba(55, 214, 122, 0.35);
-  --accent-red: #ff5c72;
-  --accent-red-dim: rgba(255, 92, 114, 0.15);
-  --accent-red-border: rgba(255, 92, 114, 0.45);
-  --accent-amber: #ffb648;
-  --accent-amber-dim: rgba(255, 182, 72, 0.15);
-  --accent-amber-border: rgba(255, 182, 72, 0.4);
+  --accent-blue: #0072ff;
+  --accent-blue-text: #4da3ff;
+  --accent-blue-dim: rgba(0, 114, 255, 0.18);
+  --accent-blue-border: rgba(0, 114, 255, 0.45);
+  --accent-blue-strong: rgba(0, 114, 255, 0.3);
+  --accent-green: #44c33b;
+  --accent-green-dim: rgba(68, 195, 59, 0.15);
+  --accent-green-border: rgba(68, 195, 59, 0.35);
+  --accent-red: #ff6161;
+  --accent-red-dim: rgba(209, 68, 68, 0.15);
+  --accent-red-border: rgba(209, 68, 68, 0.45);
+  --accent-amber: #e8914d;
+  --accent-amber-dim: rgba(198, 98, 26, 0.15);
+  --accent-amber-border: rgba(198, 98, 26, 0.4);
 
   /* Ledger-bar / legend segments: a monochrome blue ramp, light to dark. */
-  --seg-1: #003dff;
-  --seg-2: #5981ff;
-  --seg-3: #99b1ff;
-  --seg-4: #d1dcff;
-  --seg-5: #002fc4;
+  --seg-1: #0072ff;
+  --seg-2: #4da3ff;
+  --seg-3: #99c7ff;
+  --seg-4: #d1e7ff;
+  --seg-5: #0058c4;
 
-  --glow: rgba(0, 61, 255, 0.14);
+  --glow: rgba(0, 114, 255, 0.14);
 
-  --hover: rgba(241, 243, 255, 0.08);
-  --pressed: rgba(241, 243, 255, 0.14);
+  --hover: rgba(255, 255, 255, 0.08);
+  --pressed: rgba(255, 255, 255, 0.14);
   --elev-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
   --elev-2: 0 2px 6px 2px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.3);
   --elev-3: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
@@ -112,51 +115,50 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  /* Neutrals shift warm here (not cool blue-gray) to match the actual site
-     -- its panel/border/secondary-text colors (#F6F4F1, #DDDBD8, #7A7A74)
-     lean warm, not blue-tinted. text-primary stays navy either way.
-     --bg is a soft off-white, distinct from --card-bg's pure white -- gives
-     every card real separation from the page canvas (border alone was too
-     subtle), matching a clean dashboard look without touching the brand's
-     actual accent color. */
-  --bg: #f7f6f4;
+  /* Neutrals match Passu's own light admin UI -- gray-50 page background,
+     pure white cards, gray-200 borders, gray-900 primary text -- rather
+     than this app's old warm off-white. text-primary uses Passu's literal
+     brand.dark (#121212); accent colors below are Passu's brand.blue/
+     green/red/orange exactly, matching its antd ConfigProvider theme
+     tokens one-for-one. */
+  --bg: #f9fafb;
   --card-bg: #ffffff;
-  --panel-bg: #f6f4f1;
-  --pane-bg: #f9f8f6;
-  --border: #dddbd8;
-  --border-soft: #ece9e6;
-  --text-primary: #14173a;
-  --text-secondary: #62625d;
-  --text-tertiary: #8c8c86;
+  --panel-bg: #f3f4f6;
+  --pane-bg: #f9fafb;
+  --border: #e5e7eb;
+  --border-soft: #eef0f2;
+  --text-primary: #121212;
+  --text-secondary: #6b7280;
+  --text-tertiary: #898989;
 
-  --accent-blue: #003dff;
-  --accent-blue-text: #003dff;
-  --accent-blue-dim: rgba(0, 61, 255, 0.1);
-  --accent-blue-border: rgba(0, 61, 255, 0.35);
-  --accent-blue-strong: rgba(0, 61, 255, 0.18);
-  --accent-green: #12a35a;
-  --accent-green-dim: rgba(18, 163, 90, 0.12);
-  --accent-green-border: rgba(18, 163, 90, 0.35);
-  --accent-red: #d92c46;
-  --accent-red-dim: rgba(217, 44, 70, 0.1);
-  --accent-red-border: rgba(217, 44, 70, 0.4);
-  --accent-amber: #b7791f;
-  --accent-amber-dim: rgba(183, 121, 31, 0.12);
-  --accent-amber-border: rgba(183, 121, 31, 0.35);
+  --accent-blue: #0072ff;
+  --accent-blue-text: #0072ff;
+  --accent-blue-dim: rgba(0, 114, 255, 0.1);
+  --accent-blue-border: rgba(0, 114, 255, 0.35);
+  --accent-blue-strong: rgba(0, 114, 255, 0.18);
+  --accent-green: #1e8e22;
+  --accent-green-dim: rgba(68, 195, 59, 0.12);
+  --accent-green-border: rgba(68, 195, 59, 0.35);
+  --accent-red: #d14444;
+  --accent-red-dim: rgba(209, 68, 68, 0.1);
+  --accent-red-border: rgba(209, 68, 68, 0.4);
+  --accent-amber: #c6621a;
+  --accent-amber-dim: rgba(198, 98, 26, 0.12);
+  --accent-amber-border: rgba(198, 98, 26, 0.35);
 
-  --seg-1: #003dff;
-  --seg-2: #5981ff;
-  --seg-3: #99b1ff;
-  --seg-4: #d1dcff;
-  --seg-5: #002fc4;
+  --seg-1: #0072ff;
+  --seg-2: #4da3ff;
+  --seg-3: #99c7ff;
+  --seg-4: #d1e7ff;
+  --seg-5: #0058c4;
 
-  --glow: rgba(0, 61, 255, 0.07);
+  --glow: rgba(0, 114, 255, 0.07);
 
-  --hover: rgba(20, 23, 58, 0.06);
-  --pressed: rgba(20, 23, 58, 0.12);
-  --elev-1: 0 1px 2px rgba(20, 23, 58, 0.12), 0 1px 3px 1px rgba(20, 23, 58, 0.08);
-  --elev-2: 0 2px 6px 2px rgba(20, 23, 58, 0.12), 0 1px 2px rgba(20, 23, 58, 0.16);
-  --elev-3: 0 8px 24px rgba(20, 23, 58, 0.18), 0 2px 6px rgba(20, 23, 58, 0.12);
+  --hover: rgba(18, 18, 18, 0.06);
+  --pressed: rgba(18, 18, 18, 0.12);
+  --elev-1: 0 1px 2px rgba(18, 18, 18, 0.12), 0 1px 3px 1px rgba(18, 18, 18, 0.08);
+  --elev-2: 0 2px 6px 2px rgba(18, 18, 18, 0.12), 0 1px 2px rgba(18, 18, 18, 0.16);
+  --elev-3: 0 8px 24px rgba(18, 18, 18, 0.18), 0 2px 6px rgba(18, 18, 18, 0.12);
 }
 
 * {
